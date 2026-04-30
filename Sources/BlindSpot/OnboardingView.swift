@@ -8,12 +8,10 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     var onComplete: (() -> Void)?
 
+    // Stay in .accessory throughout. PasteableKeyField handles Cmd+V/typing
+    // directly via NSTextField, so we don't need .regular activation here.
+    // See SettingsWindowController for the full rationale.
     func show() {
-        // Switch to .regular so the app can truly become active and text fields
-        // accept keyboard input. (.accessory apps can show windows but cannot
-        // become the frontmost app, so paste/type never reach text fields.)
-        NSApp.setActivationPolicy(.regular)
-
         if window == nil {
             let view = OnboardingView { [weak self] in
                 self?.window?.close()
@@ -39,10 +37,6 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         window = nil
-        // Return to menu-bar-only mode once the window is gone
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            NSApp.setActivationPolicy(.accessory)
-        }
     }
 }
 
@@ -466,6 +460,7 @@ private extension Provider {
         case .openai:    return "sparkle"
         case .anthropic: return "brain.head.profile"
         case .gemini:    return "sparkles"
+        case .deepseek:  return "cpu"
         case .ollama:    return "laptopcomputer"
         }
     }
@@ -475,6 +470,7 @@ private extension Provider {
         case .openai:    return "GPT-4o\nBest all-round\nNeeds API key"
         case .anthropic: return "Claude\nGreat for reasoning\nNeeds API key"
         case .gemini:    return "Gemini 2.5\nFast & cheap\nNeeds API key"
+        case .deepseek:  return "DeepSeek\nVery cheap\nNeeds API key"
         case .ollama:    return "Local models\nFree & private\nNo API key"
         }
     }
@@ -484,6 +480,7 @@ private extension Provider {
         case .openai:    return "platform.openai.com/api-keys"
         case .anthropic: return "console.anthropic.com/settings/keys"
         case .gemini:    return "aistudio.google.com/app/apikey"
+        case .deepseek:  return "platform.deepseek.com/api_keys"
         case .ollama:    return "ollama.com"
         }
     }
