@@ -3,6 +3,10 @@
 *.o
 *.d
 
+# Built app + release artifacts (produced by make-app.sh / make-release.sh)
+BlindSpot.app/
+dist/
+
 # macOS
 .DS_Store
 *.swp
