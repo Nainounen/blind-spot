@@ -9,7 +9,7 @@ enum Provider: String, CaseIterable {
         switch self {
         case .openai:    return "OpenAI"
         case .anthropic: return "Anthropic"
-        case .ollama:    return "Ollama (local)"
+        case .ollama:    return "Ollama"
         }
     }
 
@@ -24,36 +24,50 @@ enum Provider: String, CaseIterable {
     var requiresKey: Bool { self != .ollama }
 }
 
+// Config reads UserDefaults and files directly — no actor isolation needed.
+// PreferencesStore writes to the same locations from the UI layer.
 enum Config {
+    // MARK: - Provider
+
     static var provider: Provider {
-        let name = ProcessInfo.processInfo.environment["BLIND_SPOT_PROVIDER"] ?? "openai"
-        return Provider(rawValue: name) ?? .openai
+        if let v = ProcessInfo.processInfo.environment["BLIND_SPOT_PROVIDER"],
+           let p = Provider(rawValue: v) { return p }
+        let raw = UserDefaults.standard.string(forKey: "provider") ?? "openai"
+        return Provider(rawValue: raw) ?? .openai
     }
+
+    // MARK: - Model
+
+    static var model: String {
+        if let v = ProcessInfo.processInfo.environment["BLIND_SPOT_MODEL"], !v.isEmpty { return v }
+        if let data = UserDefaults.standard.data(forKey: "modelOverrides"),
+           let map  = try? JSONDecoder().decode([String: String].self, from: data),
+           let m    = map[provider.rawValue], !m.isEmpty { return m }
+        return provider.defaultModel
+    }
+
+    // MARK: - API Key
 
     static var apiKey: String {
         let prov = provider
-        // 1. Generic env var
         if let k = ProcessInfo.processInfo.environment["BLIND_SPOT_API_KEY"], !k.isEmpty { return k }
-        // 2. Legacy OpenAI env var (backwards compat)
         if prov == .openai, let k = ProcessInfo.processInfo.environment["OPENAI_API_KEY"], !k.isEmpty { return k }
-        // 3. Per-provider key file ~/.config/blind-spot/keys/<provider>
-        let keysDir = FileManager.default.homeDirectoryForCurrentUser
+        // Per-provider key file (written by UI or run.sh)
+        let keyFile = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".config/blind-spot/keys/\(prov.rawValue)")
-        if let k = try? String(contentsOf: keysDir, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
-           !k.isEmpty { return k }
-        // 4. Legacy single api-key file (OpenAI only)
+        if let k = try? String(contentsOf: keyFile, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines), !k.isEmpty { return k }
+        // Legacy single-file (openai only, backwards compat)
         if prov == .openai {
             let legacy = FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent(".config/blind-spot/api-key")
-            if let k = try? String(contentsOf: legacy, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
-               !k.isEmpty { return k }
+            if let k = try? String(contentsOf: legacy, encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines), !k.isEmpty { return k }
         }
         return ""
     }
 
-    static var model: String {
-        ProcessInfo.processInfo.environment["BLIND_SPOT_MODEL"] ?? provider.defaultModel
-    }
+    // MARK: - Misc
 
     static let maxTokens = 1024
 
