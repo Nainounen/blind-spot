@@ -7,9 +7,13 @@ import AppKit
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
 
+    // We deliberately do NOT switch activation policy to .regular while the
+    // window is open. Doing so makes a Dock icon appear *and* makes AppKit
+    // terminate the process when the last window closes, even with
+    // applicationShouldTerminateAfterLastWindowClosed returning false.
+    // Custom keyboard handling lives in PasteableKeyField, so we don't need
+    // .regular for paste/typing to work.
     func show() {
-        NSApp.setActivationPolicy(.regular)
-
         if window == nil {
             let w = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 520, height: 460),
@@ -31,9 +35,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         window = nil
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            NSApp.setActivationPolicy(.accessory)
-        }
     }
 }
 
@@ -46,6 +47,7 @@ struct SettingsView: View {
     @State private var draftKey: String = ""
     @State private var showKey: Bool = false
     @State private var draftModel: String = ""
+    @State private var draftSystemPrompt: String = ""
     @State private var axGranted: Bool = AXIsProcessTrusted()
 
     var body: some View {
@@ -73,6 +75,8 @@ struct SettingsView: View {
                     accessibilitySection
                     Divider()
                     hotkeySection
+                    Divider()
+                    systemPromptSection
                 }
                 .padding(24)
             }
@@ -81,6 +85,7 @@ struct SettingsView: View {
         .frame(width: 520)
         .onAppear {
             draftModel = prefs.currentModel(for: prefs.providerChoice)
+            draftSystemPrompt = prefs.systemPrompt
             if prefs.providerChoice == .ollama {
                 Task { @MainActor in
                     await prefs.refreshOllamaModels()
@@ -323,6 +328,45 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+
+    private var systemPromptSection: some View {
+        SettingsSection(title: "System Prompt") {
+            TextEditor(text: $draftSystemPrompt)
+                .font(.system(.body, design: .monospaced))
+                .frame(minHeight: 110, maxHeight: 220)
+                .padding(6)
+                .background(Color.primary.opacity(0.04))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+
+            HStack(alignment: .top, spacing: 8) {
+                Text("Sent as the `system` message to every request. Leave empty to disable. Example: \"Reply in one short sentence in the user's language.\"")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                if draftSystemPrompt != prefs.systemPrompt {
+                    Button("Discard") { draftSystemPrompt = prefs.systemPrompt }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.secondary)
+                }
+                Button("Save") {
+                    prefs.saveSystemPrompt(
+                        draftSystemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(draftSystemPrompt == prefs.systemPrompt)
+            }
+
+            Text("Stored at ~/.config/blind-spot/system-prompt.txt")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
     }
 }

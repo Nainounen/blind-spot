@@ -92,6 +92,7 @@ The **✦** icon in the menu bar lets you:
 | **OpenAI** | `gpt-4o` | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
 | **Anthropic** | `claude-opus-4-5` | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
 | **Gemini** | `gemini-2.5-flash` | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) |
+| **DeepSeek** | `deepseek-chat` | [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys) |
 | **Ollama** | `llama3.2` | None — runs locally |
 
 API keys are stored at `~/.config/blind-spot/keys/<provider>` (mode 600).
