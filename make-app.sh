@@ -9,7 +9,10 @@ VERSION="${1:-1.0.0}"
 APP="BlindSpot.app"
 
 echo "Building BlindSpot $VERSION…"
-swift build -c release 2>&1
+# Universal binary so Intel Macs (x86_64) and Apple Silicon (arm64) both work
+# from the same .app bundle.
+swift build -c release --arch arm64 --arch x86_64 2>&1
+BUILD_PATH=$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)
 
 # Generate icon if ICNS doesn't exist yet
 if [[ ! -f "BlindSpot.icns" ]]; then
@@ -22,7 +25,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 mkdir -p "$APP/Contents/Resources"
 
-cp .build/release/BlindSpot "$APP/Contents/MacOS/BlindSpot"
+cp "$BUILD_PATH/BlindSpot" "$APP/Contents/MacOS/BlindSpot"
 cp BlindSpot.icns "$APP/Contents/Resources/BlindSpot.icns"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
@@ -47,6 +50,11 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
+
+# Ad-hoc sign the bundle so macOS treats it as a coherent code-signed unit.
+# This must happen AFTER Info.plist is written, since codesign covers it.
+# (Real Developer ID signing would happen later if an Apple cert is added.)
+codesign --force --deep --sign - "$APP" 2>/dev/null || true
 
 echo ""
 echo "✓ Built: $(pwd)/$APP"

@@ -1,0 +1,182 @@
+name: Release
+
+# Push a tag like v1.0.1 to cut a release. The workflow:
+#   1. Builds a universal BlindSpot.app (arm64 + x86_64)
+#   2. Packages it as BlindSpot-<version>.dmg with a drag-to-Applications layout
+#   3. Creates a GitHub Release with the DMG attached
+#   4. (If HOMEBREW_TAP_TOKEN is set) rewrites Casks/blindspot.rb in the
+#      Nainounen/homebrew-blindspot repo so `brew upgrade --cask blindspot`
+#      picks up the new version automatically.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 1.0.1)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Release
+    runs-on: macos-14
+    outputs:
+      version:  ${{ steps.meta.outputs.version }}
+      sha256:   ${{ steps.sha.outputs.sha256 }}
+      dmg_name: ${{ steps.meta.outputs.dmg_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid version '$VERSION'. Expected MAJOR.MINOR.PATCH."
+            exit 1
+          fi
+          echo "version=$VERSION"               >> "$GITHUB_OUTPUT"
+          echo "dmg_name=BlindSpot-$VERSION.dmg" >> "$GITHUB_OUTPUT"
+
+      - name: Build universal BlindSpot.app + DMG
+        run: ./make-release.sh "${{ steps.meta.outputs.version }}"
+
+      - name: Capture sha256
+        id: sha
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHA=$(shasum -a 256 "dist/${{ steps.meta.outputs.dmg_name }}" | awk '{print $1}')
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact (debug)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.dmg_name }}
+          path: dist/${{ steps.meta.outputs.dmg_name }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.meta.outputs.version }}
+          name: BlindSpot ${{ steps.meta.outputs.version }}
+          generate_release_notes: true
+          body: |
+            ## Install
+
+            **Easy / no terminal:**
+            1. Download `${{ steps.meta.outputs.dmg_name }}` below
+            2. Double-click to mount it
+            3. Drag **BlindSpot** onto the **Applications** folder
+            4. First launch: right-click `BlindSpot.app` in Applications → **Open** → **Open**
+               (only needed once — macOS doesn't recognise the app yet because it's not notarized)
+
+            **Homebrew:**
+            ```
+            brew tap Nainounen/blindspot
+            brew install --cask blindspot
+            ```
+          files: |
+            dist/${{ steps.meta.outputs.dmg_name }}
+            dist/${{ steps.meta.outputs.dmg_name }}.sha256
+          fail_on_unmatched_files: true
+
+  update-tap:
+    name: Update Homebrew tap
+    needs: build
+    runs-on: ubuntu-latest
+    # Only run when a PAT for the tap repo has been configured. Without it
+    # the build still ships, the cask update is just skipped.
+    if: ${{ vars.HOMEBREW_TAP_REPO != '' }}
+    steps:
+      - name: Rewrite Casks/blindspot.rb in tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAP_REPO: ${{ vars.HOMEBREW_TAP_REPO }} # e.g. Nainounen/homebrew-blindspot
+          VERSION:  ${{ needs.build.outputs.version }}
+          SHA256:   ${{ needs.build.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN secret is not configured; skipping tap update."
+            exit 0
+          fi
+
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${TAP_REPO}.git" tap
+          mkdir -p tap/Casks
+
+          cat > tap/Casks/blindspot.rb <<RUBY
+          cask "blindspot" do
+            version "${VERSION}"
+            sha256 "${SHA256}"
+
+            url "https://github.com/Nainounen/blind-spot/releases/download/v#{version}/BlindSpot-#{version}.dmg"
+            name "BlindSpot"
+            desc "AI answers for selected text — invisible to screen recorders"
+            homepage "https://github.com/Nainounen/blind-spot"
+
+            livecheck do
+              url :url
+              strategy :github_latest
+            end
+
+            depends_on macos: ">= :sonoma"
+
+            app "BlindSpot.app"
+
+            postflight do
+              system_command "/usr/bin/xattr",
+                             args: ["-cr", "#{appdir}/BlindSpot.app"],
+                             sudo: false
+              system_command "/usr/bin/codesign",
+                             args: ["--force", "--deep", "--sign", "-", "#{appdir}/BlindSpot.app"],
+                             sudo: false
+            end
+
+            uninstall quit: "com.blindspot.app"
+
+            zap trash: [
+              "~/Library/Preferences/com.blindspot.app.plist",
+              "~/Library/Application Support/BlindSpot",
+              "~/.config/blind-spot",
+            ]
+
+            caveats <<~EOS
+              BlindSpot is a menu-bar app — there's no Dock icon by design.
+              Launch it once with:
+                open -a BlindSpot
+
+              Required permission on first launch:
+                System Settings → Privacy & Security → Accessibility → enable BlindSpot
+
+              To update: brew update && brew upgrade --cask blindspot
+            EOS
+          end
+          RUBY
+
+          # The heredoc preserves the YAML indentation; strip the leading 10
+          # spaces so the resulting cask is properly formatted.
+          sed -i 's/^          //' tap/Casks/blindspot.rb
+
+          cd tap
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/blindspot.rb
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "blindspot: bump to ${VERSION}"
+          git push
