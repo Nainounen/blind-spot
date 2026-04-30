@@ -37,11 +37,21 @@ struct PasteableKeyField: NSViewRepresentable {
 }
 
 // MARK: - Private subclasses that claim first responder on window attachment
+//
+// They also override performKeyEquivalent to handle Cmd+V/C/X/A/Z manually.
+// BlindSpot runs as an .accessory app and never installs an application menu
+// bar, so the standard Edit menu shortcuts (⌘V etc.) are never delivered to
+// the field editor. Without this override, paste only works via right-click.
 
 private class AutoFocusPlainField: NSTextField {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         claimFocus()
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if handleEditingKeyEquivalent(event) { return true }
+        return super.performKeyEquivalent(with: event)
     }
 }
 
@@ -49,6 +59,11 @@ private class AutoFocusSecureField: NSSecureTextField {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         claimFocus()
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if handleEditingKeyEquivalent(event) { return true }
+        return super.performKeyEquivalent(with: event)
     }
 }
 
@@ -58,5 +73,31 @@ private extension NSTextField {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             self?.window?.makeFirstResponder(self)
         }
+    }
+
+    /// Routes Cmd+V/C/X/A/Z/Shift+Z to the responder chain so the field editor
+    /// performs the standard editing action. Returns true if the event was
+    /// handled.
+    func handleEditingKeyEquivalent(_ event: NSEvent) -> Bool {
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard mods.contains(.command) else { return false }
+        // Only act when this field (or its field editor) is the first responder.
+        guard let win = window, win.firstResponder === self || win.firstResponder === currentEditor() else {
+            return false
+        }
+        let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
+        let action: Selector?
+        switch key {
+        case "v": action = #selector(NSText.paste(_:))
+        case "c": action = #selector(NSText.copy(_:))
+        case "x": action = #selector(NSText.cut(_:))
+        case "a": action = #selector(NSResponder.selectAll(_:))
+        case "z": action = mods.contains(.shift)
+            ? Selector(("redo:"))
+            : Selector(("undo:"))
+        default: return false
+        }
+        guard let sel = action else { return false }
+        return NSApp.sendAction(sel, to: nil, from: self)
     }
 }

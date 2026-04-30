@@ -77,7 +77,15 @@ struct SettingsView: View {
         }
         .background(.ultraThickMaterial)
         .frame(width: 520)
-        .onAppear { draftModel = prefs.currentModel(for: prefs.providerChoice) }
+        .onAppear {
+            draftModel = prefs.currentModel(for: prefs.providerChoice)
+            if prefs.providerChoice == .ollama {
+                Task { @MainActor in
+                    await prefs.refreshOllamaModels()
+                    draftModel = prefs.currentModel(for: .ollama)
+                }
+            }
+        }
     }
 
     // MARK: - Sections
@@ -194,12 +202,73 @@ struct SettingsView: View {
             }
             .onChange(of: prefs.providerChoice) { _, new in
                 draftModel = prefs.currentModel(for: new)
+                if new == .ollama {
+                    Task { @MainActor in
+                        await prefs.refreshOllamaModels()
+                        draftModel = prefs.currentModel(for: .ollama)
+                    }
+                }
             }
 
-            Text("Default for \(prefs.providerChoice.displayName): \(prefs.providerChoice.defaultModel)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if prefs.providerChoice == .ollama {
+                ollamaModelHelper
+            } else {
+                Text("Default for \(prefs.providerChoice.displayName): \(prefs.providerChoice.defaultModel)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
+    }
+
+    @ViewBuilder
+    private var ollamaModelHelper: some View {
+        if prefs.ollamaUnreachable {
+            HStack {
+                Label("Ollama not running at localhost:11434", systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                Spacer()
+                refreshButton
+            }
+        } else if prefs.installedOllamaModels.isEmpty {
+            HStack {
+                Label("No models installed. Try `ollama pull llama3.2`.", systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                refreshButton
+            }
+        } else {
+            HStack {
+                Text("Installed:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Picker("", selection: $draftModel) {
+                    ForEach(prefs.installedOllamaModels, id: \.self) { name in
+                        Text(name).tag(name)
+                    }
+                    if !prefs.installedOllamaModels.contains(draftModel) && !draftModel.isEmpty {
+                        Text("\(draftModel) (custom)").tag(draftModel)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                Spacer()
+                refreshButton
+            }
+        }
+    }
+
+    private var refreshButton: some View {
+        Button("Refresh") {
+            Task { @MainActor in
+                await prefs.refreshOllamaModels()
+                draftModel = prefs.currentModel(for: .ollama)
+            }
+        }
+        .buttonStyle(.borderless)
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 
     private var accessibilitySection: some View {
@@ -232,22 +301,26 @@ struct SettingsView: View {
 
     private var hotkeySection: some View {
         SettingsSection(title: "Hotkey") {
-            HStack(spacing: 8) {
-                ForEach(["⌘", "⇧", "Space"], id: \.self) { k in
-                    Text(k)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
-                }
-                Text("over selected text")
-                    .foregroundStyle(.secondary)
-                    .font(.callout)
-            }
-            .font(.title3)
+            HotkeyRecorder(
+                hotkey: prefs.hotkey,
+                isRecording: Binding(
+                    get: { prefs.isRecordingHotkey },
+                    set: { prefs.isRecordingHotkey = $0 }
+                ),
+                onCapture: { prefs.setHotkey($0) }
+            )
 
-            Text("To change the hotkey, edit HotkeyManager.swift and rebuild.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+            HStack {
+                Text("Press the combo over any selected text.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if prefs.hotkey != .default {
+                    Button("Reset to ⌘⇧Space") { prefs.resetHotkey() }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 }

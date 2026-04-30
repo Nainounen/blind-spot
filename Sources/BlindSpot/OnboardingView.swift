@@ -109,6 +109,9 @@ struct OnboardingView: View {
             case .welcome: break
             case .provider:
                 PreferencesStore.shared.setProvider(selectedProvider)
+                if selectedProvider == .ollama {
+                    Task { @MainActor in await PreferencesStore.shared.refreshOllamaModels() }
+                }
                 go(to: selectedProvider == .ollama ? .accessibility : .apiKey)
             case .apiKey:
                 if !apiKey.isEmpty {
@@ -460,6 +463,7 @@ private extension Provider {
         switch self {
         case .openai:    return "sparkle"
         case .anthropic: return "brain.head.profile"
+        case .gemini:    return "sparkles"
         case .ollama:    return "laptopcomputer"
         }
     }
@@ -468,6 +472,7 @@ private extension Provider {
         switch self {
         case .openai:    return "GPT-4o\nBest all-round\nNeeds API key"
         case .anthropic: return "Claude\nGreat for reasoning\nNeeds API key"
+        case .gemini:    return "Gemini 2.5\nFast & cheap\nNeeds API key"
         case .ollama:    return "Local models\nFree & private\nNo API key"
         }
     }
@@ -476,6 +481,7 @@ private extension Provider {
         switch self {
         case .openai:    return "platform.openai.com/api-keys"
         case .anthropic: return "console.anthropic.com/settings/keys"
+        case .gemini:    return "aistudio.google.com/app/apikey"
         case .ollama:    return "ollama.com"
         }
     }

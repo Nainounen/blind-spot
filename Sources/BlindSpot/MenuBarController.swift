@@ -87,6 +87,7 @@ private extension Provider {
         switch self {
         case .openai:    return "OpenAI  (gpt-4o)"
         case .anthropic: return "Anthropic  (claude-opus-4-5)"
+        case .gemini:    return "Gemini  (gemini-2.5-flash)"
         case .ollama:    return "Ollama  (local)"
         }
     }

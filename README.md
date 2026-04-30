@@ -56,7 +56,7 @@ cd blind-spot
 
 When BlindSpot starts for the first time, a setup wizard guides you through:
 
-1. **Choose your AI** — OpenAI, Anthropic, or Ollama (local)
+1. **Choose your AI** — OpenAI, Anthropic, Gemini, or Ollama (local)
 2. **API key** — paste your key; it's saved locally and never leaves your Mac
 3. **Accessibility permission** — required to read selected text and listen for the hotkey
 4. **Done** — the ✦ icon appears in your menu bar
@@ -81,6 +81,7 @@ The **✦** icon in the menu bar lets you:
 |---|---|---|
 | **OpenAI** | `gpt-4o` | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
 | **Anthropic** | `claude-opus-4-5` | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
+| **Gemini** | `gemini-2.5-flash` | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) |
 | **Ollama** | `llama3.2` | None — runs locally |
 
 API keys are stored at `~/.config/blind-spot/keys/<provider>` (mode 600).

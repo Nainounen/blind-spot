@@ -22,6 +22,7 @@ enum AIService {
         switch Config.provider {
         case .openai:    return try await queryOpenAI(text)
         case .anthropic: return try await queryAnthropic(text)
+        case .gemini:    return try await queryGemini(text)
         case .ollama:    return try await queryOllama(text)
         }
     }
@@ -106,6 +107,63 @@ enum AIService {
                               let chunk = delta["text"] as? String
                         else { continue }
                         continuation.yield(chunk)
+                    }
+                    continuation.finish()
+                } catch { continuation.finish(throwing: error) }
+            }
+        }
+    }
+
+    // MARK: - Gemini  (SSE: candidates[0].content.parts[*].text)
+
+    private static func queryGemini(_ text: String) async throws -> AsyncThrowingStream<String, Swift.Error> {
+        let key = Config.apiKey
+        guard !key.isEmpty else { throw Error.missingAPIKey(.gemini) }
+
+        // Model name is sent in the URL path, key as a query parameter.
+        guard let escapedModel = Config.model.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let escapedKey   = key.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(escapedModel):streamGenerateContent?alt=sse&key=\(escapedKey)")
+        else { throw Error.emptyResponse }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        var body: [String: Any] = [
+            "contents": [[
+                "role": "user",
+                "parts": [["text": text]],
+            ]],
+            "generationConfig": [
+                "maxOutputTokens": Config.maxTokens,
+            ],
+        ]
+        if let prompt = Config.systemPrompt {
+            body["systemInstruction"] = ["parts": [["text": prompt]]]
+        }
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (stream, response) = try await URLSession.shared.bytes(for: req)
+        try validateHTTP(response)
+
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    for try await line in stream.lines {
+                        guard line.hasPrefix("data: ") else { continue }
+                        let json = String(line.dropFirst(6))
+                        guard let data = json.data(using: .utf8),
+                              let obj  = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                              let candidates = obj["candidates"] as? [[String: Any]],
+                              let content = candidates.first?["content"] as? [String: Any],
+                              let parts   = content["parts"] as? [[String: Any]]
+                        else { continue }
+                        for part in parts {
+                            if let chunk = part["text"] as? String, !chunk.isEmpty {
+                                continuation.yield(chunk)
+                            }
+                        }
                     }
                     continuation.finish()
                 } catch { continuation.finish(throwing: error) }
