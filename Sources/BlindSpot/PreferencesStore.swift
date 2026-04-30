@@ -24,6 +24,11 @@ final class PreferencesStore: ObservableObject {
     /// True when the most recent attempt to reach Ollama failed.
     @Published var ollamaUnreachable: Bool = false
 
+    /// Global system prompt applied to every request when no named
+    /// `BLIND_SPOT_PROMPT` is set. Persisted at
+    /// ~/.config/blind-spot/system-prompt.txt.
+    @Published var systemPrompt: String = ""
+
     private init() {
         onboardingComplete = UserDefaults.standard.bool(forKey: "onboardingComplete")
         providerChoice = Provider(rawValue: UserDefaults.standard.string(forKey: "provider") ?? "") ?? .openai
@@ -38,6 +43,38 @@ final class PreferencesStore: ObservableObject {
             hotkey = hk
         } else {
             hotkey = .default
+        }
+        systemPrompt = Self.loadSystemPromptFromDisk()
+    }
+
+    // MARK: - System prompt
+
+    private static func systemPromptURL() -> URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/blind-spot/system-prompt.txt")
+    }
+
+    private static func loadSystemPromptFromDisk() -> String {
+        (try? String(contentsOf: systemPromptURL(), encoding: .utf8)) ?? ""
+    }
+
+    /// Persists the prompt to disk. Empty string deletes the file so
+    /// `Config.systemPrompt` falls back to the named-prompt code path.
+    func saveSystemPrompt(_ prompt: String) {
+        systemPrompt = prompt
+        let url = Self.systemPromptURL()
+        try? FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        if prompt.isEmpty {
+            try? FileManager.default.removeItem(at: url)
+        } else {
+            try? prompt.write(to: url, atomically: true, encoding: .utf8)
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: 0o600],
+                ofItemAtPath: url.path
+            )
         }
     }
 

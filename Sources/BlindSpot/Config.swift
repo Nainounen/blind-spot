@@ -4,6 +4,7 @@ enum Provider: String, CaseIterable {
     case openai
     case anthropic
     case gemini
+    case deepseek
     case ollama
 
     var displayName: String {
@@ -11,6 +12,7 @@ enum Provider: String, CaseIterable {
         case .openai:    return "OpenAI"
         case .anthropic: return "Anthropic"
         case .gemini:    return "Gemini"
+        case .deepseek:  return "DeepSeek"
         case .ollama:    return "Ollama"
         }
     }
@@ -20,6 +22,7 @@ enum Provider: String, CaseIterable {
         case .openai:    return "gpt-4o"
         case .anthropic: return "claude-opus-4-5"
         case .gemini:    return "gemini-2.5-flash"
+        case .deepseek:  return "deepseek-chat"
         case .ollama:    return "llama3.2"
         }
     }
@@ -61,6 +64,7 @@ enum Config {
                 if let k = ProcessInfo.processInfo.environment[name], !k.isEmpty { return k }
             }
         }
+        if prov == .deepseek, let k = ProcessInfo.processInfo.environment["DEEPSEEK_API_KEY"], !k.isEmpty { return k }
         // Per-provider key file (written by UI or run.sh)
         let keyFile = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".config/blind-spot/keys/\(prov.rawValue)")
@@ -81,11 +85,23 @@ enum Config {
     static let maxTokens = 1024
 
     static var systemPrompt: String? {
+        // 1. Named prompt selected via env var (overrides the global prompt)
         let name = ProcessInfo.processInfo.environment["BLIND_SPOT_PROMPT"] ?? ""
-        guard !name.isEmpty else { return nil }
-        let path = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".config/blind-spot/prompts/\(name).txt")
-        return try? String(contentsOf: path, encoding: .utf8)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !name.isEmpty {
+            let path = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".config/blind-spot/prompts/\(name).txt")
+            if let p = try? String(contentsOf: path, encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines), !p.isEmpty {
+                return p
+            }
+        }
+        // 2. Global system prompt set in Settings
+        let globalPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/blind-spot/system-prompt.txt")
+        if let p = try? String(contentsOf: globalPath, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines), !p.isEmpty {
+            return p
+        }
+        return nil
     }
 }
