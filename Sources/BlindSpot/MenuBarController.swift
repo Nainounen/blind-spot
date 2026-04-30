@@ -14,13 +14,17 @@ final class MenuBarController {
         }
         rebuildMenu()
 
-        // Rebuild menu when provider changes so the checkmark stays accurate
+        // Rebuild menu when provider changes so the checkmark stays accurate.
+        // The inner Task re-captures self weakly so Swift 6 strict-concurrency
+        // doesn't see us closing over the outer closure's captured `var self`.
         NotificationCenter.default.addObserver(
             forName: .providerDidChange,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in self?.rebuildMenu() }
+        ) { _ in
+            Task { @MainActor [weak self] in
+                self?.rebuildMenu()
+            }
         }
     }
 
