@@ -22,13 +22,14 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: ./run.sh [prompt-name] [--provider PROVIDER] [--model MODEL]"
             echo ""
             echo "  prompt-name          Name of a file in ~/.config/blind-spot/prompts/"
-            echo "  --provider, -p       openai (default) | anthropic | gemini | ollama"
+            echo "  --provider, -p       openai (default) | anthropic | gemini | deepseek | ollama"
             echo "  --model, -m          Override the default model for the chosen provider"
             echo ""
             echo "Provider defaults:"
             echo "  openai      →  gpt-4o"
             echo "  anthropic   →  claude-opus-4-5"
             echo "  gemini      →  gemini-2.5-flash"
+            echo "  deepseek    →  deepseek-chat"
             echo "  ollama      →  llama3.2  (no API key needed, must be running locally)"
             echo ""
             echo "Examples:"
@@ -51,10 +52,10 @@ done
 
 # ── Validate provider ────────────────────────────────────────────────────────
 case "$PROVIDER" in
-    openai|anthropic|gemini|ollama) ;;
+    openai|anthropic|gemini|deepseek|ollama) ;;
     *)
         echo "Error: unknown provider '$PROVIDER'"
-        echo "Supported providers: openai, anthropic, gemini, ollama"
+        echo "Supported providers: openai, anthropic, gemini, deepseek, ollama"
         exit 1 ;;
 esac
 
@@ -80,6 +81,7 @@ if [[ "$PROVIDER" != "ollama" ]]; then
             openai)    LABEL="OpenAI" ;;
             anthropic) LABEL="Anthropic" ;;
             gemini)    LABEL="Gemini" ;;
+            deepseek)  LABEL="DeepSeek" ;;
             *)         LABEL="$PROVIDER" ;;
         esac
         echo -n "Enter your $LABEL API key: "
