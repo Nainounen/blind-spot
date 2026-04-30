@@ -3,6 +3,7 @@ import AppKit
 
 // MARK: - Window helper
 
+@MainActor
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
 
@@ -38,6 +39,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
 // MARK: - View
 
+@MainActor
 struct SettingsView: View {
     @ObservedObject private var prefs = PreferencesStore.shared
     @State private var editingKey: Provider? = nil
