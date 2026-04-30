@@ -2,7 +2,7 @@ cask "blindspot" do
   version "1.0.0"
   sha256 :no_check # replaced by CI on every tagged release
 
-  url "https://github.com/Nainounen/blind-spot/releases/download/v#{version}/BlindSpot-#{version}.zip"
+  url "https://github.com/Nainounen/blind-spot/releases/download/v#{version}/BlindSpot-#{version}.dmg"
   name "BlindSpot"
   desc "AI answers for selected text — invisible to screen recorders"
   homepage "https://github.com/Nainounen/blind-spot"
