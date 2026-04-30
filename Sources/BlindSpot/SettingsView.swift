@@ -24,6 +24,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         }
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+        DispatchQueue.main.async { NSApp.activate(ignoringOtherApps: true) }
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -40,6 +41,7 @@ struct SettingsView: View {
     @State private var showKey: Bool = false
     @State private var draftModel: String = ""
     @State private var axGranted: Bool = AXIsProcessTrusted()
+    @FocusState private var keyFieldFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -110,8 +112,10 @@ struct SettingsView: View {
                         Group {
                             if showKey {
                                 TextField("Paste API key…", text: $draftKey)
+                                    .focused($keyFieldFocused)
                             } else {
                                 SecureField("Paste API key…", text: $draftKey)
+                                    .focused($keyFieldFocused)
                             }
                         }
                         .textFieldStyle(.roundedBorder)
@@ -119,6 +123,11 @@ struct SettingsView: View {
 
                         Button(showKey ? "Hide" : "Show") { showKey.toggle() }
                             .buttonStyle(.borderless)
+                    }
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            keyFieldFocused = true
+                        }
                     }
                     HStack(spacing: 8) {
                         Button("Save") {

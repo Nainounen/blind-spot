@@ -29,6 +29,8 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         }
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+        // Give the run loop a tick to settle, then ensure the window is truly key
+        DispatchQueue.main.async { NSApp.activate(ignoringOtherApps: true) }
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -246,7 +248,7 @@ private struct APIKeyStep: View {
     let provider: Provider
     @Binding var key: String
     @Binding var showKey: Bool
-    @State private var saved = false
+    @FocusState private var fieldFocused: Bool
 
     var body: some View {
         VStack(spacing: 20) {
@@ -260,8 +262,10 @@ private struct APIKeyStep: View {
                     Group {
                         if showKey {
                             TextField("Paste your API key…", text: $key)
+                                .focused($fieldFocused)
                         } else {
                             SecureField("Paste your API key…", text: $key)
+                                .focused($fieldFocused)
                         }
                     }
                     .textFieldStyle(.roundedBorder)
@@ -290,6 +294,12 @@ private struct APIKeyStep: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .padding(.bottom, 8)
+        }
+        .onAppear {
+            // Small delay so the window is fully key before claiming focus
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                fieldFocused = true
+            }
         }
     }
 }

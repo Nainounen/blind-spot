@@ -11,12 +11,19 @@ APP="BlindSpot.app"
 echo "Building BlindSpot $VERSION…"
 swift build -c release 2>&1
 
+# Generate icon if ICNS doesn't exist yet
+if [[ ! -f "BlindSpot.icns" ]]; then
+    echo "Generating app icon…"
+    swift make-icon.swift
+fi
+
 echo "Assembling $APP…"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 mkdir -p "$APP/Contents/Resources"
 
 cp .build/release/BlindSpot "$APP/Contents/MacOS/BlindSpot"
+cp BlindSpot.icns "$APP/Contents/Resources/BlindSpot.icns"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -31,6 +38,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleVersion</key>         <string>${VERSION}</string>
   <key>CFBundleShortVersionString</key><string>${VERSION}</string>
   <key>CFBundlePackageType</key>     <string>APPL</string>
+  <key>CFBundleIconFile</key>        <string>BlindSpot</string>
   <key>LSMinimumSystemVersion</key>  <string>14.0</string>
   <key>LSUIElement</key>             <true/>
   <key>NSAccessibilityUsageDescription</key>
