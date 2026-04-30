@@ -1,11 +1,16 @@
 import AppKit
 
 let app = NSApplication.shared
-// Main thread is guaranteed before app.run() — use assumeIsolated to satisfy
-// the Swift concurrency checker for @MainActor-isolated types.
+
+// NSApplication.delegate is a *weak* reference. The delegate must stay alive
+// for the lifetime of the process; if it's only held by a local variable
+// inside a closure, ARC deallocates it as soon as the closure exits and
+// callbacks like `applicationShouldTerminateAfterLastWindowClosed` are
+// silently never invoked. Holding it at file scope keeps the strong ref.
+let appDelegate: AppDelegate = MainActor.assumeIsolated { AppDelegate() }
+
 MainActor.assumeIsolated {
-    let delegate = AppDelegate()
-    app.delegate = delegate
-    app.setActivationPolicy(.accessory) // menu bar only, no dock icon
+    app.delegate = appDelegate
+    app.setActivationPolicy(.accessory) // menu bar only, no dock icon, ever
 }
 app.run()
