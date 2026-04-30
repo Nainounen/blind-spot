@@ -3,6 +3,7 @@ import AppKit
 
 // MARK: - Window helper
 
+@MainActor
 final class OnboardingWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     var onComplete: (() -> Void)?
@@ -51,6 +52,7 @@ private enum Step: Int, CaseIterable {
     case welcome, provider, apiKey, accessibility, done
 }
 
+@MainActor
 struct OnboardingView: View {
     var onComplete: () -> Void
 
