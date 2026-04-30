@@ -1,0 +1,19 @@
+# Swift build artifacts
+.build/
+*.o
+*.d
+
+# macOS
+.DS_Store
+*.swp
+
+# API key and personal prompts
+~/.config/blind-spot/
+
+# Test app
+test-app/recordings/
+test-app/node_modules/
+test-app/*.log
+
+# Claude Code
+.claude/settings.local.json

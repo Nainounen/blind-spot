@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlindSpot Adversarial Test</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0d0d0d;
+    color: #e0e0e0;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    grid-template-rows: 56px 1fr;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Header ─────────────────────────────────────────── */
+  header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px;
+    background: #161616;
+    border-bottom: 1px solid #2a2a2a;
+  }
+  header h1 { font-size: 15px; font-weight: 600; color: #ff4d4d; flex: 1; }
+  .badge {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: .5px;
+  }
+  .badge-rec  { background: #ff4d4d22; color: #ff4d4d; border: 1px solid #ff4d4d44; }
+  .badge-ok   { background: #22c55e22; color: #22c55e; border: 1px solid #22c55e44; }
+  .badge-warn { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b44; }
+  #recDot { width: 8px; height: 8px; border-radius: 50%; background: #ff4d4d;
+            animation: pulse 1s infinite; display: none; }
+  @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.3 } }
+  button.ctrl {
+    font-size: 12px; padding: 5px 14px; border-radius: 6px; border: none;
+    cursor: pointer; font-weight: 600;
+  }
+  #btnStart { background: #ff4d4d; color: #fff; }
+  #btnStop  { background: #333; color: #aaa; display: none; }
+  #btnSave  { background: #22c55e; color: #fff; display: none; }
+
+  /* ── Test panels ─────────────────────────────────────── */
+  main {
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .panel {
+    background: #161616;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #1c1c1c;
+    border-bottom: 1px solid #2a2a2a;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .3px;
+  }
+  .panel-header .label { flex: 1; }
+  .panel-body { padding: 14px; font-size: 13px; line-height: 1.7; }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #f59e0b; flex-shrink: 0;
+  }
+  .status-dot.blocked { background: #ff4d4d; }
+  .status-dot.pass    { background: #22c55e; }
+
+  /* Attack zones */
+  .zone-no-select    { user-select: none; -webkit-user-select: none; }
+  .zone-copy-block   { /* JS blocks copy */ }
+  .zone-keyboard     { /* JS swallows Cmd+Shift+Space */ }
+  .zone-clipboard    { /* JS poisons clipboard */ }
+  .zone-shadow       { /* shadow DOM */ min-height: 60px; }
+  .zone-canvas       { display: block; }
+
+  .text-sample {
+    background: #0d0d0d;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: #c9d1d9;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* ── Event log ───────────────────────────────────────── */
+  aside {
+    background: #0a0a0a;
+    border-left: 1px solid #2a2a2a;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .log-header {
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #161616;
+    border-bottom: 1px solid #2a2a2a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #eventCount {
+    margin-left: auto;
+    font-size: 11px;
+    color: #666;
+  }
+  #logList {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+    font-size: 11px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .log-entry {
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 6px;
+    padding: 3px 12px;
+    border-bottom: 1px solid #1a1a1a;
+    line-height: 1.5;
+  }
+  .log-entry:hover { background: #161616; }
+  .log-time { color: #555; }
+  .log-msg  { color: #c9d1d9; }
+  .log-entry.intercept .log-msg { color: #ff4d4d; }
+  .log-entry.detected  .log-msg { color: #f59e0b; }
+  .log-entry.pass      .log-msg { color: #22c55e; }
+  .log-entry.info      .log-msg { color: #60a5fa; }
+</style>
+</head>
+<body>
+
+<header>
+  <div id="recDot"></div>
+  <h1>🔴 BlindSpot Adversarial Test</h1>
+  <span id="statusBadge" class="badge badge-warn">IDLE</span>
+  <button class="ctrl" id="btnStart">▶ Start Recording</button>
+  <button class="ctrl" id="btnStop">⏹ Stop</button>
+  <button class="ctrl" id="btnSave">💾 Save &amp; Download</button>
+</header>
+
+<main>
+
+  <!-- Zone 1: Baseline -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="status-dot" id="dot1"></div>
+      <span class="label">Zone 1 — Baseline (no defenses)</span>
+      <span class="badge badge-ok">CONTROL</span>
+    </div>
+    <div class="panel-body">
+      <p style="margin-bottom:8px;font-size:11px;color:#666;">BlindSpot <em>must</em> work here. Select any text below and press Cmd+Shift+Space.</p>
+      <div class="text-sample">
+        The quick brown fox jumps over the lazy dog. This is the control zone —
+        no defenses are active. If BlindSpot fails here, something is wrong with
+        the tool itself, not the website countermeasures.
+      </div>
+    </div>
+  </div>
+
+  <!-- Zone 2: user-select: none -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="status-dot blocked" id="dot2"></div>
+      <span class="label">Zone 2 — CSS <code>user-select: none</code></span>
+      <span class="badge badge-rec">ACTIVE</span>
+    </div>
+    <div class="panel-body">
+      <p style="margin-bottom:8px;font-size:11px;color:#666;">
+        Text is CSS-protected: you cannot drag-select it. BlindSpot's AX tree walk should still reach it.
+      </p>
+      <div class="text-sample zone-no-select">
+        PROTECTED TEXT — user-select:none is applied to this entire element and all
+        descendants. Normal copy will fail. The AX path reads the underlying DOM text
+        node regardless of CSS rendering restrictions.
+      </div>
+    </div>
+  </div>
+
+  <!-- Zone 3: oncopy blocked -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="status-dot blocked" id="dot3"></div>
+      <span class="label">Zone 3 — <code>oncopy</code> event blocked + clipboard poisoned</span>
+      <span class="badge badge-rec">ACTIVE</span>
+    </div>
+    <div class="panel-body">
+      <p style="margin-bottom:8px;font-size:11px;color:#666;">
+        Any copy attempt is intercepted; clipboard is replaced with garbage. Defeats the clipboard fallback path.
+      </p>
+      <div class="text-sample zone-copy-block" id="zone3text">
+        CONFIDENTIAL — This zone intercepts every copy event at the document level
+        and overwrites the clipboard with decoy content. The AX selected-text path
+        bypasses this entirely because it never touches the clipboard.
+      </div>
+    </div>
+  </div>
+
+  <!-- Zone 4: keyboard swallowed -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="status-dot blocked" id="dot4"></div>
+      <span class="label">Zone 4 — Keyboard event swallowed (Cmd+Shift+Space)</span>
+      <span class="badge badge-rec">ACTIVE</span>
+    </div>
+    <div class="panel-body">
+      <p style="margin-bottom:8px;font-size:11px;color:#666;">
+        The page captures <code>keydown</code> for Cmd+Shift+Space and calls
+        <code>preventDefault()</code> + <code>stopImmediatePropagation()</code>.
+        BlindSpot's CGEventTap fires at the OS session layer — before Chrome, so this has zero effect.
+      </p>
+      <div class="text-sample zone-keyboard" id="zone4text">
+        KEYBOARD TRAP — Cmd+Shift+Space is intercepted here at the JS level.
+        JavaScript event listeners run inside the browser sandbox. CGEventTap
+        intercepts at the kernel event tap, which is above any browser.
+        This defense is completely ineffective against BlindSpot.
+      </div>
+    </div>
+  </div>
+
+  <!-- Zone 5: Shadow DOM -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="status-dot blocked" id="dot5"></div>
+      <span class="label">Zone 5 — Shadow DOM (encapsulated content)</span>
+      <span class="badge badge-rec">ACTIVE</span>
+    </div>
+    <div class="panel-body">
+      <p style="margin-bottom:8px;font-size:11px;color:#666;">
+        Text is inside a closed Shadow DOM — invisible to <code>document.getSelection()</code>
+        and most scraping tools. Chrome still exposes it through the accessibility tree.
+      </p>
+      <div id="shadowHost" class="text-sample zone-shadow"></div>
+    </div>
+  </div>
+
+  <!-- Zone 6: Canvas text -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="status-dot blocked" id="dot6"></div>
+      <span class="label">Zone 6 — Canvas-rendered text (truly unselectable)</span>
+      <span class="badge badge-rec">ACTIVE</span>
+    </div>
+    <div class="panel-body">
+      <p style="margin-bottom:8px;font-size:11px;color:#666;">
+        Text is painted as pixels on a <code>&lt;canvas&gt;</code>. There is no DOM
+        text node — AX tree has nothing to read. This is a genuine limitation.
+        BlindSpot cannot extract canvas-rendered text.
+      </p>
+      <canvas id="canvasZone" width="700" height="70" class="zone-canvas"
+              style="border-radius:6px;background:#0d0d0d;"></canvas>
+    </div>
+  </div>
+
+  <!-- Zone 7: Focus trap -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="status-dot blocked" id="dot7"></div>
+      <span class="label">Zone 7 — Blur / focus-loss detection</span>
+      <span class="badge badge-rec">ACTIVE</span>
+    </div>
+    <div class="panel-body">
+      <p style="margin-bottom:8px;font-size:11px;color:#666;">
+        The page listens for <code>visibilitychange</code>, <code>blur</code>, and
+        <code>focus</code> events to detect when the overlay steals focus. BlindSpot
+        captures text <em>before</em> showing the window — by the time focus leaves,
+        we already have the text.
+      </p>
+      <div class="text-sample" id="zone7text">
+        FOCUS TRAP TEXT — select this and invoke BlindSpot. The page will log exactly
+        when it detects focus loss, proving the window appeared after the text was
+        already captured.
+      </div>
+    </div>
+  </div>
+
+  <!-- Zone 8: Clipboard read-back snoop -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="status-dot blocked" id="dot8"></div>
+      <span class="label">Zone 8 — Async clipboard snoop (Clipboard API)</span>
+      <span class="badge badge-rec">ACTIVE</span>
+    </div>
+    <div class="panel-body">
+      <p style="margin-bottom:8px;font-size:11px;color:#666;">
+        The page polls <code>navigator.clipboard.readText()</code> every 200 ms to log
+        what's in the clipboard. If BlindSpot's clipboard fallback runs, this will
+        catch the contents. With the AX path, the clipboard is never written.
+      </p>
+      <div class="text-sample" id="zone8text">
+        CLIPBOARD SPY — if BlindSpot ever writes your selected text to the clipboard
+        in transit, this zone will catch it. Check the event log on the right —
+        any clipboard read success is a red flag.
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Live event log -->
+<aside>
+  <div class="log-header">
+    ⚡ Live Event Log
+    <span id="eventCount">0 events</span>
+  </div>
+  <div id="logList"></div>
+</aside>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  EVENT LOG
+// ═══════════════════════════════════════════════════════════════
+const logList  = document.getElementById('logList');
+const eventLog = [];
+let   eventSeq = 0;
+
+function log(msg, type = 'info') {
+  const now  = new Date();
+  const time = now.toISOString().slice(11, 23);
+  const entry = { seq: ++eventSeq, time, msg, type };
+  eventLog.push(entry);
+
+  const row = document.createElement('div');
+  row.className = `log-entry ${type}`;
+  row.innerHTML = `<span class="log-time">${time}</span><span class="log-msg">${msg}</span>`;
+  logList.prepend(row); // newest at top
+
+  document.getElementById('eventCount').textContent = `${eventSeq} events`;
+}
+
+log('Test page loaded. Click "Start Recording" to begin.', 'info');
+
+
+// ═══════════════════════════════════════════════════════════════
+//  ZONE 2 — user-select:none (CSS, nothing to wire up in JS)
+// ═══════════════════════════════════════════════════════════════
+// Already handled by CSS class zone-no-select
+
+
+// ═══════════════════════════════════════════════════════════════
+//  ZONE 3 — oncopy block + clipboard poison
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('copy', (e) => {
+  const sel = window.getSelection()?.toString();
+  if (sel) {
+    log(`[Zone 3] copy intercepted — replacing "${sel.slice(0,40)}…" with decoy`, 'intercept');
+    e.preventDefault();
+    e.clipboardData.setData('text/plain', '*** DECOY: clipboard poisoned by zone 3 ***');
+  }
+}, true); // capture phase = intercepts before any other handler
+
+
+// ═══════════════════════════════════════════════════════════════
+//  ZONE 4 — keyboard swallow (Cmd+Shift+Space)
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+  if (e.key === ' ' && e.metaKey && e.shiftKey) {
+    log('[Zone 4] keydown Cmd+Shift+Space intercepted — calling preventDefault + stopImmediatePropagation', 'intercept');
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    // This has NO effect on CGEventTap, which fires at OS level before Chrome
+  }
+}, true);
+
+
+// ═══════════════════════════════════════════════════════════════
+//  ZONE 5 — Shadow DOM
+// ═══════════════════════════════════════════════════════════════
+const host   = document.getElementById('shadowHost');
+const shadow = host.attachShadow({ mode: 'closed' }); // closed = JS can't pierce it
+const inner  = document.createElement('div');
+inner.style.cssText = 'padding:10px;color:#c9d1d9;font-size:13px;line-height:1.6;';
+inner.textContent   = 'SHADOW DOM TEXT — This paragraph lives inside a closed Shadow Root. '
+                     + 'document.getSelection() cannot see it. Chrome\'s accessibility tree '
+                     + 'CAN see it because the AX bridge is built at the render engine level, '
+                     + 'not at the JS document level.';
+shadow.appendChild(inner);
+
+
+// ═══════════════════════════════════════════════════════════════
+//  ZONE 6 — Canvas text
+// ═══════════════════════════════════════════════════════════════
+(function () {
+  const canvas = document.getElementById('canvasZone');
+  const ctx    = canvas.getContext('2d');
+  ctx.fillStyle = '#c9d1d9';
+  ctx.font      = '13px -apple-system, sans-serif';
+  ctx.fillText(
+    'CANVAS TEXT — rendered as pixels. No DOM node. AX tree is empty here. BlindSpot cannot read this.',
+    12, 30
+  );
+  ctx.fillStyle = '#555';
+  ctx.font      = '11px -apple-system, sans-serif';
+  ctx.fillText('→ This is a genuine limitation. Expect BlindSpot to return empty for canvas-only content.', 12, 52);
+})();
+
+
+// ═══════════════════════════════════════════════════════════════
+//  ZONE 7 — Focus / blur / visibility monitoring
+// ═══════════════════════════════════════════════════════════════
+window.addEventListener('blur',  () => log('[Zone 7] window blur — focus left the browser', 'detected'));
+window.addEventListener('focus', () => log('[Zone 7] window focus — browser regained focus', 'detected'));
+document.addEventListener('visibilitychange', () => {
+  log(`[Zone 7] visibilitychange → ${document.visibilityState}`, 'detected');
+});
+document.addEventListener('selectionchange', () => {
+  const sel = window.getSelection()?.toString();
+  if (sel) log(`[Zone 7] selectionchange — "${sel.slice(0, 50)}"`, 'detected');
+});
+
+
+// ═══════════════════════════════════════════════════════════════
+//  ZONE 8 — Clipboard snoop via Clipboard API
+// ═══════════════════════════════════════════════════════════════
+let lastClipboard = null;
+setInterval(async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text && text !== lastClipboard) {
+      lastClipboard = text;
+      log(`[Zone 8] clipboard changed → "${text.slice(0, 60)}"`, 'detected');
+    }
+  } catch (_) {
+    // Permission denied or document not focused — expected when BlindSpot overlay is up
+  }
+}, 200);
+
+
+// ═══════════════════════════════════════════════════════════════
+//  SCREEN RECORDING
+// ═══════════════════════════════════════════════════════════════
+let mediaRecorder = null;
+let chunks        = [];
+let stream        = null;
+
+const btnStart  = document.getElementById('btnStart');
+const btnStop   = document.getElementById('btnStop');
+const btnSave   = document.getElementById('btnSave');
+const recDot    = document.getElementById('recDot');
+const statusBadge = document.getElementById('statusBadge');
+
+btnStart.addEventListener('click', async () => {
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: 30, displaySurface: 'monitor' },
+      audio: false,
+    });
+
+    chunks        = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+    mediaRecorder.onstop          = onRecordingStop;
+
+    mediaRecorder.start(500); // collect chunks every 500 ms
+
+    recDot.style.display   = 'block';
+    btnStart.style.display = 'none';
+    btnStop.style.display  = 'inline-block';
+    statusBadge.textContent = 'REC';
+    statusBadge.className   = 'badge badge-rec';
+    log('Screen recording started — entire monitor captured', 'info');
+
+    stream.getVideoTracks()[0].onended = () => {
+      log('Screen share stopped by user (browser UI)', 'info');
+      stopRecording();
+    };
+  } catch (err) {
+    log(`Recording failed: ${err.message}`, 'intercept');
+  }
+});
+
+btnStop.addEventListener('click', stopRecording);
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  stream?.getTracks().forEach(t => t.stop());
+  recDot.style.display  = 'none';
+  btnStop.style.display = 'none';
+  statusBadge.textContent = 'PROCESSING…';
+  statusBadge.className   = 'badge badge-warn';
+}
+
+async function onRecordingStop() {
+  log('Recording stopped — building blob…', 'info');
+  const blob = new Blob(chunks, { type: 'video/webm' });
+  log(`Blob size: ${(blob.size / 1024 / 1024).toFixed(2)} MB`, 'info');
+
+  // Show save button (downloads locally as backup)
+  btnSave.style.display = 'inline-block';
+  btnSave.onclick = () => {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = `blindspot-test-${Date.now()}.webm`;
+    a.click();
+  };
+
+  // POST to server for automatic disk save
+  try {
+    log('Uploading to server for disk save…', 'info');
+    const res  = await fetch('/save-recording', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: blob,
+    });
+    const json = await res.json();
+    if (json.ok) {
+      log(`✓ Saved to disk: ${json.file}`, 'pass');
+      statusBadge.textContent = 'SAVED';
+      statusBadge.className   = 'badge badge-ok';
+    }
+  } catch (err) {
+    log(`Server save failed (${err.message}) — use the download button`, 'intercept');
+    statusBadge.textContent = 'SAVE ERROR';
+    statusBadge.className   = 'badge badge-rec';
+  }
+
+  // Also save the event log
+  try {
+    await fetch('/save-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ events: eventLog, capturedAt: new Date().toISOString() }),
+    });
+    log('Event log saved to disk', 'pass');
+  } catch (_) {}
+}
+</script>
+</body>
+</html>
