@@ -11,13 +11,20 @@ Press **⌘⇧Space** over any selected text. An answer streams back in a floati
 ### Option A — Homebrew (recommended)
 
 ```bash
-brew tap Nainounen/blindspot https://github.com/Nainounen/blind-spot
-brew install --HEAD blindspot
-open "$(brew --prefix)/opt/blindspot/BlindSpot.app"
+brew tap Nainounen/blindspot
+brew install --cask blindspot
+open -a BlindSpot
 ```
 
-> **Note:** a tap repo `homebrew-blindspot` must exist for `brew tap` to work.
-> Until then, use Option B or C below.
+Homebrew installs `BlindSpot.app` into `/Applications` automatically and
+links it to the menu bar. To update later:
+
+```bash
+brew update && brew upgrade --cask blindspot
+```
+
+> Requires the tap repo `Nainounen/homebrew-blindspot` to exist. See
+> [Publishing a release](#publishing-a-release) below for the one-time setup.
 
 ### Option B — Pre-built app bundle
 
@@ -145,16 +152,70 @@ osascript -e 'id of app "YourBrowser"'
 
 ---
 
-## Setting up a Homebrew tap
+## Publishing a release
 
-To let others install with `brew install`, create a public repo named **`homebrew-blindspot`** under your GitHub account and copy `Formula/blindspot.rb` into it. Then:
+The release pipeline ships `BlindSpot.app` to users via a Homebrew Cask hosted
+in a separate tap repo, automated by GitHub Actions.
 
+### One-time setup
+
+1. **Create the tap repo.** It must be named exactly `homebrew-blindspot`
+   (the `homebrew-` prefix is required by Homebrew).
+   ```bash
+   gh repo create Nainounen/homebrew-blindspot --public \
+     --description "Homebrew tap for BlindSpot"
+   ```
+   Seed it with the cask from this repo:
+   ```bash
+   git clone https://github.com/Nainounen/homebrew-blindspot.git
+   mkdir -p homebrew-blindspot/Casks
+   cp Casks/blindspot.rb homebrew-blindspot/Casks/blindspot.rb
+   cd homebrew-blindspot && git add . && git commit -m "initial cask" && git push
+   ```
+2. **Create a fine-grained PAT** with `Contents: write` on
+   `Nainounen/homebrew-blindspot`. Add it to this repo as the
+   `HOMEBREW_TAP_TOKEN` **secret** and add the variable
+   `HOMEBREW_TAP_REPO=Nainounen/homebrew-blindspot` under repo **variables**.
+   Without these the release workflow still publishes the GitHub Release; it
+   just skips the cask bump.
+
+### Cutting a release
+
+Locally:
 ```bash
-brew tap Nainounen/blindspot
-brew install --HEAD blindspot
+./make-release.sh 1.0.1            # builds dist/BlindSpot-1.0.1.zip + .sha256
+git tag v1.0.1 && git push origin v1.0.1
 ```
 
-Update the `url` and `sha256` in the formula after you create a tagged release.
+The push triggers `.github/workflows/release.yml`, which:
+
+1. Builds `BlindSpot.app` on a `macos-14` runner via `make-release.sh`.
+2. Creates a GitHub Release `v1.0.1` with `BlindSpot-1.0.1.zip` attached.
+3. Rewrites `Casks/blindspot.rb` in `homebrew-blindspot` with the new
+   `version` + `sha256` and pushes a `blindspot: bump to 1.0.1` commit.
+
+Users then run `brew upgrade --cask blindspot` to pick up the new build.
+
+### Future: in-app auto-updates with Sparkle
+
+`brew upgrade` requires the user to remember to run it. For silent in-app
+auto-updates (the way Rectangle, Raycast, etc. update themselves) integrate
+[Sparkle](https://sparkle-project.org). It needs:
+
+- An [Apple Developer Program](https://developer.apple.com/programs/)
+  membership to obtain a Developer ID certificate (required for notarization
+  — without it Sparkle's update verification fails).
+- An EdDSA keypair generated via Sparkle's `generate_keys` tool. The public
+  half goes into `Info.plist` as `SUPublicEDKey`; the private half stays in
+  Keychain / GitHub Secrets.
+- An appcast XML hosted somewhere (GitHub Pages or the release zip's
+  download URL). Sparkle's `generate_appcast` tool produces it from the
+  same `dist/*.zip` files this project already produces.
+- `import Sparkle` + an `SPUStandardUpdaterController` wired into
+  `AppDelegate`.
+
+Until that's in place, `brew upgrade --cask blindspot` is the supported
+update path.
 
 ---
 
