@@ -3,12 +3,14 @@ import Foundation
 enum Provider: String, CaseIterable {
     case openai
     case anthropic
+    case gemini
     case ollama
 
     var displayName: String {
         switch self {
         case .openai:    return "OpenAI"
         case .anthropic: return "Anthropic"
+        case .gemini:    return "Gemini"
         case .ollama:    return "Ollama"
         }
     }
@@ -17,6 +19,7 @@ enum Provider: String, CaseIterable {
         switch self {
         case .openai:    return "gpt-4o"
         case .anthropic: return "claude-opus-4-5"
+        case .gemini:    return "gemini-2.5-flash"
         case .ollama:    return "llama3.2"
         }
     }
@@ -52,6 +55,12 @@ enum Config {
         let prov = provider
         if let k = ProcessInfo.processInfo.environment["BLIND_SPOT_API_KEY"], !k.isEmpty { return k }
         if prov == .openai, let k = ProcessInfo.processInfo.environment["OPENAI_API_KEY"], !k.isEmpty { return k }
+        if prov == .anthropic, let k = ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY"], !k.isEmpty { return k }
+        if prov == .gemini {
+            for name in ["GEMINI_API_KEY", "GOOGLE_API_KEY"] {
+                if let k = ProcessInfo.processInfo.environment[name], !k.isEmpty { return k }
+            }
+        }
         // Per-provider key file (written by UI or run.sh)
         let keyFile = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".config/blind-spot/keys/\(prov.rawValue)")

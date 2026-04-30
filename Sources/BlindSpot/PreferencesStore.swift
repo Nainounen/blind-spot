@@ -13,6 +13,16 @@ final class PreferencesStore: ObservableObject {
     @Published var providerChoice: Provider
     @Published var modelOverrides: [String: String]
     @Published var onboardingComplete: Bool
+    @Published var hotkey: Hotkey
+    /// True while the user is recording a new hotkey in Settings. The global
+    /// `HotkeyManager` watches this and pauses its event tap so the user can
+    /// re-record the same combo they're currently bound to.
+    @Published var isRecordingHotkey: Bool = false
+
+    /// Names of models installed on the local Ollama server (e.g. `llama3.2:latest`).
+    @Published var installedOllamaModels: [String] = []
+    /// True when the most recent attempt to reach Ollama failed.
+    @Published var ollamaUnreachable: Bool = false
 
     private init() {
         onboardingComplete = UserDefaults.standard.bool(forKey: "onboardingComplete")
@@ -22,6 +32,12 @@ final class PreferencesStore: ObservableObject {
             modelOverrides = map
         } else {
             modelOverrides = [:]
+        }
+        if let data = UserDefaults.standard.data(forKey: "hotkey"),
+           let hk = try? JSONDecoder().decode(Hotkey.self, from: data) {
+            hotkey = hk
+        } else {
+            hotkey = .default
         }
     }
 
@@ -46,6 +62,39 @@ final class PreferencesStore: ObservableObject {
     func completeOnboarding() {
         onboardingComplete = true
         defaults.set(true, forKey: "onboardingComplete")
+    }
+
+    // MARK: - Hotkey
+
+    func setHotkey(_ hk: Hotkey) {
+        hotkey = hk
+        if let data = try? JSONEncoder().encode(hk) {
+            defaults.set(data, forKey: "hotkey")
+        }
+    }
+
+    func resetHotkey() { setHotkey(.default) }
+
+    // MARK: - Ollama
+
+    /// Hits the local Ollama server, refreshes the installed-model list, and
+    /// — if the currently configured Ollama model isn't installed — switches
+    /// to the best installed one. Safe to call any time; no-op when Ollama
+    /// isn't running.
+    func refreshOllamaModels() async {
+        guard let models = await OllamaService.listInstalledModels() else {
+            ollamaUnreachable = true
+            installedOllamaModels = []
+            return
+        }
+        ollamaUnreachable = false
+        installedOllamaModels = models.map { $0.name }
+
+        let current = currentModel(for: .ollama)
+        let isCurrentInstalled = installedOllamaModels.contains(current)
+        if !isCurrentInstalled, let best = OllamaService.bestInstalledModel(in: models) {
+            setModel(best.name, for: .ollama)
+        }
     }
 
     // MARK: - API keys (stored per-provider in ~/.config/blind-spot/keys/)
