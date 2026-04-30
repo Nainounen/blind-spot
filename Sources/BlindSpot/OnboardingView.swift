@@ -8,6 +8,11 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     var onComplete: (() -> Void)?
 
     func show() {
+        // Switch to .regular so the app can truly become active and text fields
+        // accept keyboard input. (.accessory apps can show windows but cannot
+        // become the frontmost app, so paste/type never reach text fields.)
+        NSApp.setActivationPolicy(.regular)
+
         if window == nil {
             let view = OnboardingView { [weak self] in
                 self?.window?.close()
@@ -29,12 +34,14 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         }
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
-        // Give the run loop a tick to settle, then ensure the window is truly key
-        DispatchQueue.main.async { NSApp.activate(ignoringOtherApps: true) }
     }
 
     func windowWillClose(_ notification: Notification) {
         window = nil
+        // Return to menu-bar-only mode once the window is gone
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            NSApp.setActivationPolicy(.accessory)
+        }
     }
 }
 

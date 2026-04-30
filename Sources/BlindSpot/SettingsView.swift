@@ -7,6 +7,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
 
     func show() {
+        NSApp.setActivationPolicy(.regular)
+
         if window == nil {
             let w = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 520, height: 460),
@@ -24,11 +26,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         }
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
-        DispatchQueue.main.async { NSApp.activate(ignoringOtherApps: true) }
     }
 
     func windowWillClose(_ notification: Notification) {
         window = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            NSApp.setActivationPolicy(.accessory)
+        }
     }
 }
 
