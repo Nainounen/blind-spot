@@ -33,6 +33,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Pin Xcode so a future runner image bump can't silently turn new
+      # concurrency warnings into release-blocking errors. Update this when
+      # you've validated a newer Xcode locally.
+      - name: Select Xcode
+        run: |
+          if [ -d /Applications/Xcode_16.app ]; then
+            sudo xcode-select -s /Applications/Xcode_16.app
+          fi
+          xcodebuild -version
+          swift --version
+
       - name: Resolve version
         id: meta
         shell: bash
