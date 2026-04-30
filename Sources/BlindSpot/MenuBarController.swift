@@ -92,6 +92,7 @@ private extension Provider {
         case .openai:    return "OpenAI  (gpt-4o)"
         case .anthropic: return "Anthropic  (claude-opus-4-5)"
         case .gemini:    return "Gemini  (gemini-2.5-flash)"
+        case .deepseek:  return "DeepSeek  (deepseek-chat)"
         case .ollama:    return "Ollama  (local)"
         }
     }

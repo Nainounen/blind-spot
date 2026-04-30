@@ -20,20 +20,40 @@ enum AIService {
 
     static func query(_ text: String) async throws -> AsyncThrowingStream<String, Swift.Error> {
         switch Config.provider {
-        case .openai:    return try await queryOpenAI(text)
+        case .openai:
+            return try await queryOpenAICompatible(
+                text,
+                provider: .openai,
+                endpoint: "https://api.openai.com/v1/chat/completions"
+            )
+        case .deepseek:
+            // DeepSeek's API is OpenAI-compatible; same /v1/chat/completions
+            // shape, same SSE format. Only the host differs.
+            return try await queryOpenAICompatible(
+                text,
+                provider: .deepseek,
+                endpoint: "https://api.deepseek.com/v1/chat/completions"
+            )
         case .anthropic: return try await queryAnthropic(text)
         case .gemini:    return try await queryGemini(text)
         case .ollama:    return try await queryOllama(text)
         }
     }
 
-    // MARK: - OpenAI  (SSE: choices[0].delta.content)
+    // MARK: - OpenAI-compatible  (SSE: choices[0].delta.content)
+    //
+    // Shared between OpenAI proper and any provider that exposes the same
+    // /v1/chat/completions schema (DeepSeek, Together, Groq, Fireworks, etc.).
 
-    private static func queryOpenAI(_ text: String) async throws -> AsyncThrowingStream<String, Swift.Error> {
+    private static func queryOpenAICompatible(
+        _ text: String,
+        provider: Provider,
+        endpoint: String
+    ) async throws -> AsyncThrowingStream<String, Swift.Error> {
         let key = Config.apiKey
-        guard !key.isEmpty else { throw Error.missingAPIKey(.openai) }
+        guard !key.isEmpty else { throw Error.missingAPIKey(provider) }
 
-        var req = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
+        var req = URLRequest(url: URL(string: endpoint)!)
         req.httpMethod = "POST"
         req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
