@@ -255,7 +255,6 @@ private struct APIKeyStep: View {
     let provider: Provider
     @Binding var key: String
     @Binding var showKey: Bool
-    @FocusState private var fieldFocused: Bool
 
     var body: some View {
         VStack(spacing: 20) {
@@ -266,17 +265,15 @@ private struct APIKeyStep: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Group {
-                        if showKey {
-                            TextField("Paste your API key…", text: $key)
-                                .focused($fieldFocused)
-                        } else {
-                            SecureField("Paste your API key…", text: $key)
-                                .focused($fieldFocused)
-                        }
-                    }
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
+                    // PasteableKeyField uses NSTextField directly so makeFirstResponder
+                    // is called via viewDidMoveToWindow — Cmd+V works instantly.
+                    PasteableKeyField(
+                        placeholder: "Paste your API key…",
+                        text: $key,
+                        isSecure: !showKey
+                    )
+                    .id(showKey)  // recreate field when toggling secure/plain
+                    .frame(height: 22)
 
                     Button(showKey ? "Hide" : "Show") { showKey.toggle() }
                         .buttonStyle(.borderless)
@@ -301,12 +298,6 @@ private struct APIKeyStep: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .padding(.bottom, 8)
-        }
-        .onAppear {
-            // Small delay so the window is fully key before claiming focus
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                fieldFocused = true
-            }
         }
     }
 }

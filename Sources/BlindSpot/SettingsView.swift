@@ -45,7 +45,6 @@ struct SettingsView: View {
     @State private var showKey: Bool = false
     @State private var draftModel: String = ""
     @State private var axGranted: Bool = AXIsProcessTrusted()
-    @FocusState private var keyFieldFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -113,25 +112,16 @@ struct SettingsView: View {
             } else if let editing = editingKey, editing == prefs.providerChoice {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Group {
-                            if showKey {
-                                TextField("Paste API key…", text: $draftKey)
-                                    .focused($keyFieldFocused)
-                            } else {
-                                SecureField("Paste API key…", text: $draftKey)
-                                    .focused($keyFieldFocused)
-                            }
-                        }
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(.body, design: .monospaced))
+                        PasteableKeyField(
+                            placeholder: "Paste API key…",
+                            text: $draftKey,
+                            isSecure: !showKey
+                        )
+                        .id(showKey)
+                        .frame(height: 22)
 
                         Button(showKey ? "Hide" : "Show") { showKey.toggle() }
                             .buttonStyle(.borderless)
-                    }
-                    .onAppear {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            keyFieldFocused = true
-                        }
                     }
                     HStack(spacing: 8) {
                         Button("Save") {
