@@ -461,6 +461,7 @@ private extension Provider {
         case .anthropic: return "brain.head.profile"
         case .gemini:    return "sparkles"
         case .deepseek:  return "cpu"
+        case .grok:      return "bolt"
         case .ollama:    return "laptopcomputer"
         }
     }
@@ -471,6 +472,7 @@ private extension Provider {
         case .anthropic: return "Claude\nGreat for reasoning\nNeeds API key"
         case .gemini:    return "Gemini 2.5\nFast & cheap\nNeeds API key"
         case .deepseek:  return "DeepSeek\nVery cheap\nNeeds API key"
+        case .grok:      return "Grok 3\nxAI model\nNeeds API key"
         case .ollama:    return "Local models\nFree & private\nNo API key"
         }
     }
@@ -481,6 +483,7 @@ private extension Provider {
         case .anthropic: return "console.anthropic.com/settings/keys"
         case .gemini:    return "aistudio.google.com/app/apikey"
         case .deepseek:  return "platform.deepseek.com/api_keys"
+        case .grok:      return "console.x.ai"
         case .ollama:    return "ollama.com"
         }
     }

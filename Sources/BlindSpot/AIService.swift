@@ -27,12 +27,17 @@ enum AIService {
                 endpoint: "https://api.openai.com/v1/chat/completions"
             )
         case .deepseek:
-            // DeepSeek's API is OpenAI-compatible; same /v1/chat/completions
-            // shape, same SSE format. Only the host differs.
             return try await queryOpenAICompatible(
                 text,
                 provider: .deepseek,
                 endpoint: "https://api.deepseek.com/v1/chat/completions"
+            )
+        case .grok:
+            // xAI's API is OpenAI-compatible. Only the host differs.
+            return try await queryOpenAICompatible(
+                text,
+                provider: .grok,
+                endpoint: "https://api.x.ai/v1/chat/completions"
             )
         case .anthropic: return try await queryAnthropic(text)
         case .gemini:    return try await queryGemini(text)

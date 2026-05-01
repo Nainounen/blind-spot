@@ -5,6 +5,7 @@ enum Provider: String, CaseIterable {
     case anthropic
     case gemini
     case deepseek
+    case grok
     case ollama
 
     var displayName: String {
@@ -13,6 +14,7 @@ enum Provider: String, CaseIterable {
         case .anthropic: return "Anthropic"
         case .gemini:    return "Gemini"
         case .deepseek:  return "DeepSeek"
+        case .grok:      return "Grok"
         case .ollama:    return "Ollama"
         }
     }
@@ -23,6 +25,7 @@ enum Provider: String, CaseIterable {
         case .anthropic: return "claude-opus-4-5"
         case .gemini:    return "gemini-2.5-flash"
         case .deepseek:  return "deepseek-chat"
+        case .grok:      return "grok-3"
         case .ollama:    return "llama3.2"
         }
     }
@@ -65,6 +68,11 @@ enum Config {
             }
         }
         if prov == .deepseek, let k = ProcessInfo.processInfo.environment["DEEPSEEK_API_KEY"], !k.isEmpty { return k }
+        if prov == .grok {
+            for name in ["XAI_API_KEY", "GROK_API_KEY"] {
+                if let k = ProcessInfo.processInfo.environment[name], !k.isEmpty { return k }
+            }
+        }
         // Per-provider key file (written by UI or run.sh)
         let keyFile = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".config/blind-spot/keys/\(prov.rawValue)")
