@@ -333,10 +333,8 @@ struct SettingsView: View {
 
     private var systemPromptSection: some View {
         SettingsSection(title: "System Prompt") {
-            TextEditor(text: $draftSystemPrompt)
-                .font(.system(.body, design: .monospaced))
+            PasteableTextEditor(text: $draftSystemPrompt)
                 .frame(minHeight: 110, maxHeight: 220)
-                .padding(6)
                 .background(Color.primary.opacity(0.04))
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)

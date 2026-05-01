@@ -141,6 +141,36 @@ ctx.addLine(to: CGPoint(x: arrowEndX - headW, y: iconRowY - headH))
 ctx.closePath()
 ctx.fillPath()
 
+// MARK: - Label legibility pills
+//
+// Finder renders icon labels in the system appearance color (black in light
+// mode). The dark background makes them unreadable. Draw a soft white-tinted
+// pill behind each label row so labels are legible in both light and dark mode.
+//
+// Icon centers (logical): BlindSpot=(160,220), Applications=(440,220)
+// Icon radius (logical): 64 → pixel 128
+// Label sits ~8px below icon bottom, roughly 18px tall (logical)
+// In pixel CG coords (origin bottom-left):
+//   icon center y = pixelH - 220*2 = 360
+//   label top     = 360 - 128 - 8  = 224
+//   label bottom  = 224 - 36       = 188
+
+func drawLabelPill(centerX: CGFloat) {
+    let pillW: CGFloat = 260
+    let pillH: CGFloat = 40
+    let pillX = centerX - pillW / 2
+    let pillY: CGFloat = 184
+    let radius: CGFloat = pillH / 2
+    let rect = CGRect(x: pillX, y: pillY, width: pillW, height: pillH)
+    let path = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
+    ctx.setFillColor(CGColor(colorSpace: space, components: [1, 1, 1, 0.18])!)
+    ctx.addPath(path)
+    ctx.fillPath()
+}
+
+drawLabelPill(centerX: leftIconX)   // BlindSpot
+drawLabelPill(centerX: rightIconX)  // Applications
+
 NSGraphicsContext.restoreGraphicsState()
 
 // MARK: - Save as PNG with 2x DPI

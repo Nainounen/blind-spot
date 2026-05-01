@@ -93,6 +93,7 @@ private extension Provider {
         case .anthropic: return "Anthropic  (claude-opus-4-5)"
         case .gemini:    return "Gemini  (gemini-2.5-flash)"
         case .deepseek:  return "DeepSeek  (deepseek-chat)"
+        case .grok:      return "Grok  (grok-3)"
         case .ollama:    return "Ollama  (local)"
         }
     }
