@@ -1,22 +1,30 @@
 name: Release
 
-# Push a tag like v1.0.1 to cut a release. The workflow:
-#   1. Builds a universal BlindSpot.app (arm64 + x86_64)
-#   2. Packages it as BlindSpot-<version>.dmg with a drag-to-Applications layout
-#   3. Creates a GitHub Release with the DMG attached
-#   4. (If HOMEBREW_TAP_TOKEN is set) rewrites Casks/blindspot.rb in the
-#      Nainounen/homebrew-blindspot repo so `brew upgrade --cask blindspot`
+# Triggers automatically when main changes: reads the VERSION file and creates
+# a GitHub Release if one doesn't already exist for that version.
+# To ship a new release, bump VERSION, commit, and push/merge to main.
+#
+# Can also be triggered manually via workflow_dispatch with a version override.
+#
+# The workflow:
+#   1. Reads the version from the VERSION file (or the manual input)
+#   2. Skips if a GitHub Release for that version already exists
+#   3. Builds a universal BlindSpot.app (arm64 + x86_64)
+#   4. Packages it as BlindSpot-<version>.dmg with a drag-to-Applications layout
+#   5. Creates a GitHub Release with the DMG attached
+#   6. (If HOMEBREW_TAP_TOKEN is set) rewrites Casks/blindspot.rb in the
+#      Nainounen/homebrew-blindspot tap so `brew upgrade --cask blindspot`
 #      picks up the new version automatically.
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release (e.g. 1.0.1)"
-        required: true
+        description: "Version override (e.g. 1.0.1) — leave blank to use VERSION file"
+        required: false
 
 permissions:
   contents: write
@@ -29,30 +37,20 @@ jobs:
       version:  ${{ steps.meta.outputs.version }}
       sha256:   ${{ steps.sha.outputs.sha256 }}
       dmg_name: ${{ steps.meta.outputs.dmg_name }}
+      skipped:  ${{ steps.check.outputs.skipped }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      # Pin Xcode so a future runner image bump can't silently turn new
-      # concurrency warnings into release-blocking errors. Update this when
-      # you've validated a newer Xcode locally.
-      - name: Select Xcode
-        run: |
-          if [ -d /Applications/Xcode_16.app ]; then
-            sudo xcode-select -s /Applications/Xcode_16.app
-          fi
-          xcodebuild -version
-          swift --version
 
       - name: Resolve version
         id: meta
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ -n "${{ github.event.inputs.version }}" ]]; then
             VERSION="${{ github.event.inputs.version }}"
           else
-            VERSION="${GITHUB_REF#refs/tags/v}"
+            VERSION=$(tr -d '[:space:]' < VERSION)
           fi
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Invalid version '$VERSION'. Expected MAJOR.MINOR.PATCH."
@@ -61,11 +59,43 @@ jobs:
           echo "version=$VERSION"               >> "$GITHUB_OUTPUT"
           echo "dmg_name=BlindSpot-$VERSION.dmg" >> "$GITHUB_OUTPUT"
 
+      - name: Skip if release already exists
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          if gh release view "v${VERSION}" &>/dev/null; then
+            echo "Release v${VERSION} already exists — skipping build."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skipped=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Pin Xcode so a future runner image bump can't silently turn new
+      # concurrency warnings into release-blocking errors. Update this when
+      # you've validated a newer Xcode locally.
+      - name: Select Xcode
+        if: steps.check.outputs.skipped == 'false'
+        run: |
+          if [ -d /Applications/Xcode_16.app ]; then
+            sudo xcode-select -s /Applications/Xcode_16.app
+          fi
+          xcodebuild -version
+          swift --version
+
+      - name: Install create-dmg
+        if: steps.check.outputs.skipped == 'false'
+        run: brew install create-dmg
+
       - name: Build universal BlindSpot.app + DMG
+        if: steps.check.outputs.skipped == 'false'
         run: ./make-release.sh "${{ steps.meta.outputs.version }}"
 
       - name: Capture sha256
         id: sha
+        if: steps.check.outputs.skipped == 'false'
         shell: bash
         run: |
           set -euo pipefail
@@ -73,12 +103,14 @@ jobs:
           echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifact (debug)
+        if: steps.check.outputs.skipped == 'false'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.meta.outputs.dmg_name }}
           path: dist/${{ steps.meta.outputs.dmg_name }}
 
       - name: Create GitHub Release
+        if: steps.check.outputs.skipped == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.meta.outputs.version }}
@@ -108,9 +140,9 @@ jobs:
     name: Update Homebrew tap
     needs: build
     runs-on: ubuntu-latest
-    # Only run when a PAT for the tap repo has been configured. Without it
-    # the build still ships, the cask update is just skipped.
-    if: ${{ vars.HOMEBREW_TAP_REPO != '' }}
+    # Only run when a PAT for the tap repo has been configured and the build
+    # wasn't skipped. Without the PAT the build still ships — cask update skipped.
+    if: ${{ needs.build.outputs.skipped == 'false' && vars.HOMEBREW_TAP_REPO != '' }}
     steps:
       - name: Rewrite Casks/blindspot.rb in tap
         env:
