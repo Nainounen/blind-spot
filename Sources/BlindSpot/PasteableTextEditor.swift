@@ -21,6 +21,9 @@ struct PasteableTextEditor: NSViewRepresentable {
         let tv = EditingTextView()
         tv.delegate = context.coordinator
         tv.font = font
+        tv.textColor = .labelColor
+        tv.backgroundColor = .clear
+        tv.drawsBackground = false
         tv.isEditable = true
         tv.isSelectable = true
         tv.isRichText = false
@@ -29,6 +32,8 @@ struct PasteableTextEditor: NSViewRepresentable {
         tv.textContainerInset = NSSize(width: 6, height: 6)
         tv.string = text
 
+        scrollView.backgroundColor = .clear
+        scrollView.drawsBackground = false
         scrollView.documentView = tv
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak tv] in
