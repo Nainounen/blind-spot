@@ -9,7 +9,7 @@ enum AIService {
         var errorDescription: String? {
             switch self {
             case .missingAPIKey(let p):
-                return "No API key for \(p.displayName) — run ./run.sh to set it up"
+                return "No API key for \(p.displayName) — open Settings to add one"
             case .httpError(let code, let msg):
                 return "HTTP \(code): \(msg)"
             case .emptyResponse:
@@ -18,45 +18,43 @@ enum AIService {
         }
     }
 
-    static func query(_ text: String) async throws -> AsyncThrowingStream<String, Swift.Error> {
+    static func query(_ messages: [ConversationMessage]) async throws -> AsyncThrowingStream<String, Swift.Error> {
         switch Config.provider {
         case .openai:
             return try await queryOpenAICompatible(
-                text,
+                messages,
                 provider: .openai,
                 endpoint: "https://api.openai.com/v1/chat/completions"
             )
         case .deepseek:
             return try await queryOpenAICompatible(
-                text,
+                messages,
                 provider: .deepseek,
                 endpoint: "https://api.deepseek.com/v1/chat/completions"
             )
         case .grok:
-            // xAI's API is OpenAI-compatible. Only the host differs.
             return try await queryOpenAICompatible(
-                text,
+                messages,
                 provider: .grok,
                 endpoint: "https://api.x.ai/v1/chat/completions"
             )
-        case .anthropic: return try await queryAnthropic(text)
-        case .gemini:    return try await queryGemini(text)
-        case .ollama:    return try await queryOllama(text)
+        case .anthropic: return try await queryAnthropic(messages)
+        case .gemini:    return try await queryGemini(messages)
+        case .ollama:    return try await queryOllama(messages)
         }
     }
 
-    // MARK: - OpenAI-compatible  (SSE: choices[0].delta.content)
-    //
-    // Shared between OpenAI proper and any provider that exposes the same
-    // /v1/chat/completions schema (DeepSeek, Together, Groq, Fireworks, etc.).
+    // MARK: - OpenAI-compatible (SSE: choices[0].delta.content)
 
     private static func queryOpenAICompatible(
-        _ text: String,
+        _ messages: [ConversationMessage],
         provider: Provider,
         endpoint: String
     ) async throws -> AsyncThrowingStream<String, Swift.Error> {
         let key = Config.apiKey
         guard !key.isEmpty else { throw Error.missingAPIKey(provider) }
+
+        let apiMessages = messages.map { ["role": $0.role.rawValue, "content": $0.content] }
 
         var req = URLRequest(url: URL(string: endpoint)!)
         req.httpMethod = "POST"
@@ -66,7 +64,7 @@ enum AIService {
             "model": Config.model,
             "max_tokens": Config.maxTokens,
             "stream": true,
-            "messages": buildMessages(text),
+            "messages": apiMessages,
         ])
 
         let (stream, response) = try await URLSession.shared.bytes(for: req)
@@ -93,9 +91,14 @@ enum AIService {
         }
     }
 
-    // MARK: - Anthropic  (SSE: content_block_delta / delta.text)
+    // MARK: - Anthropic (SSE: content_block_delta / delta.text)
+    //
+    // Anthropic requires: system at top-level, messages array must alternate
+    // user/assistant starting with user. Filter out system from messages.
 
-    private static func queryAnthropic(_ text: String) async throws -> AsyncThrowingStream<String, Swift.Error> {
+    private static func queryAnthropic(
+        _ messages: [ConversationMessage]
+    ) async throws -> AsyncThrowingStream<String, Swift.Error> {
         let key = Config.apiKey
         guard !key.isEmpty else { throw Error.missingAPIKey(.anthropic) }
 
@@ -105,14 +108,18 @@ enum AIService {
         req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        // Anthropic takes system at the top level, not inside messages
+        let systemText = messages.first(where: { $0.role == .system })?.content
+        let apiMessages = messages
+            .filter { $0.role != .system }
+            .map { ["role": $0.role.rawValue, "content": $0.content] }
+
         var body: [String: Any] = [
             "model": Config.model,
             "max_tokens": Config.maxTokens,
             "stream": true,
-            "messages": [["role": "user", "content": text]],
+            "messages": apiMessages,
         ]
-        if let prompt = Config.systemPrompt { body["system"] = prompt }
+        if let s = systemText { body["system"] = s }
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (stream, response) = try await URLSession.shared.bytes(for: req)
@@ -139,13 +146,17 @@ enum AIService {
         }
     }
 
-    // MARK: - Gemini  (SSE: candidates[0].content.parts[*].text)
+    // MARK: - Gemini (SSE: candidates[0].content.parts[*].text)
+    //
+    // Gemini uses "model" for the assistant role, not "assistant".
+    // System prompt goes in systemInstruction, not in contents.
 
-    private static func queryGemini(_ text: String) async throws -> AsyncThrowingStream<String, Swift.Error> {
+    private static func queryGemini(
+        _ messages: [ConversationMessage]
+    ) async throws -> AsyncThrowingStream<String, Swift.Error> {
         let key = Config.apiKey
         guard !key.isEmpty else { throw Error.missingAPIKey(.gemini) }
 
-        // Model name is sent in the URL path, key as a query parameter.
         guard let escapedModel = Config.model.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
               let escapedKey   = key.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(escapedModel):streamGenerateContent?alt=sse&key=\(escapedKey)")
@@ -155,17 +166,20 @@ enum AIService {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        let systemText = messages.first(where: { $0.role == .system })?.content
+        let contents: [[String: Any]] = messages
+            .filter { $0.role != .system }
+            .map { m in
+                let role = m.role == .assistant ? "model" : "user"
+                return ["role": role, "parts": [["text": m.content]]]
+            }
+
         var body: [String: Any] = [
-            "contents": [[
-                "role": "user",
-                "parts": [["text": text]],
-            ]],
-            "generationConfig": [
-                "maxOutputTokens": Config.maxTokens,
-            ],
+            "contents": contents,
+            "generationConfig": ["maxOutputTokens": Config.maxTokens],
         ]
-        if let prompt = Config.systemPrompt {
-            body["systemInstruction"] = ["parts": [["text": prompt]]]
+        if let s = systemText {
+            body["systemInstruction"] = ["parts": [["text": s]]]
         }
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -196,16 +210,20 @@ enum AIService {
         }
     }
 
-    // MARK: - Ollama  (newline JSON: message.content)
+    // MARK: - Ollama (newline-delimited JSON: message.content)
 
-    private static func queryOllama(_ text: String) async throws -> AsyncThrowingStream<String, Swift.Error> {
+    private static func queryOllama(
+        _ messages: [ConversationMessage]
+    ) async throws -> AsyncThrowingStream<String, Swift.Error> {
+        let apiMessages = messages.map { ["role": $0.role.rawValue, "content": $0.content] }
+
         var req = URLRequest(url: URL(string: "http://localhost:11434/api/chat")!)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONSerialization.data(withJSONObject: [
             "model": Config.model,
             "stream": true,
-            "messages": buildMessages(text),
+            "messages": apiMessages,
         ])
 
         let (stream, response) = try await URLSession.shared.bytes(for: req)
@@ -229,16 +247,7 @@ enum AIService {
         }
     }
 
-    // MARK: - Shared helpers
-
-    private static func buildMessages(_ text: String) -> [[String: String]] {
-        var msgs: [[String: String]] = []
-        if let prompt = Config.systemPrompt {
-            msgs.append(["role": "system", "content": prompt])
-        }
-        msgs.append(["role": "user", "content": text])
-        return msgs
-    }
+    // MARK: - Shared
 
     private static func validateHTTP(_ response: URLResponse) throws {
         guard let http = response as? HTTPURLResponse else { throw Error.emptyResponse }

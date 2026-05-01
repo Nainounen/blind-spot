@@ -12,9 +12,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Menu bar icon — always present
-        menuBarController = MenuBarController { [weak self] in
-            self?.settingsController.show()
-        }
+        menuBarController = MenuBarController(
+            onSettings: { [weak self] in self?.settingsController.show() },
+            onShowHistory: { [weak self] entry in self?.showOverlay(entry: entry) }
+        )
 
         // Global hotkey — read initial value from prefs and start listening
         let manager = HotkeyManager(hotkey: PreferencesStore.shared.hotkey) { [weak self] in
@@ -76,9 +77,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showOverlay(query: String) {
-        if overlayController == nil {
-            overlayController = OverlayWindowController()
-        }
+        if overlayController == nil { overlayController = OverlayWindowController() }
         overlayController?.show(query: query)
+    }
+
+    private func showOverlay(entry: HistoryEntry) {
+        if overlayController == nil { overlayController = OverlayWindowController() }
+        overlayController?.show(entry: entry)
     }
 }
