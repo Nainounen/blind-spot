@@ -77,6 +77,8 @@ struct SettingsView: View {
                     hotkeySection
                     Divider()
                     systemPromptSection
+                    Divider()
+                    versionSection
                 }
                 .padding(24)
             }
@@ -302,6 +304,20 @@ struct SettingsView: View {
                     axGranted = AXIsProcessTrusted()
                     if axGranted { t.invalidate() }
                 }
+            }
+        }
+    }
+
+    private var versionSection: some View {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+        return SettingsSection(title: "About") {
+            HStack {
+                Text("BlindSpot \(version)")
+                    .font(.callout)
+                Spacer()
+                Link("View release notes", destination: URL(string: "https://github.com/Nainounen/blind-spot/releases/tag/v\(version)")!)
+                    .font(.callout)
+                    .buttonStyle(.borderless)
             }
         }
     }
