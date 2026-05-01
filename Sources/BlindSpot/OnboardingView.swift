@@ -18,7 +18,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
                 self?.onComplete?()
             }
             let w = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 580, height: 500),
+                contentRect: NSRect(x: 0, y: 0, width: 580, height: 560),
                 styleMask: [.titled, .closable, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
@@ -197,11 +197,17 @@ private struct FeatureBullet: View {
 private struct ProviderStep: View {
     @Binding var selected: Provider
 
+    private let columns = [
+        GridItem(.flexible(), spacing: 14),
+        GridItem(.flexible(), spacing: 14),
+        GridItem(.flexible(), spacing: 14),
+    ]
+
     var body: some View {
         VStack(spacing: 20) {
             StepHeader(title: "Choose your AI", subtitle: "You can change this anytime from the menu bar.")
 
-            HStack(spacing: 14) {
+            LazyVGrid(columns: columns, spacing: 14) {
                 ForEach(Provider.allCases, id: \.rawValue) { p in
                     ProviderCard(provider: p, isSelected: selected == p)
                         .onTapGesture { withAnimation { selected = p } }
@@ -226,6 +232,7 @@ private struct ProviderCard: View {
 
             Text(provider.displayName)
                 .font(.headline)
+                .lineLimit(1)
                 .foregroundStyle(isSelected ? .white : .primary)
 
             Text(provider.cardDescription)
