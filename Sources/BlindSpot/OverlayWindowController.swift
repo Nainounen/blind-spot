@@ -5,32 +5,101 @@ class OverlayWindowController: NSObject, NSWindowDelegate {
     private var panel: NSPanel?
     private let vm = OverlayViewModel()
     private var streamTask: Task<Void, Never>?
+    private var conversationMessages: [ConversationMessage] = []
+    private var keyEventMonitor: Any?
+
+    // MARK: - Public
 
     func show(query: String) {
         if panel == nil { buildPanel() }
-
         streamTask?.cancel()
-        vm.query = query
-        vm.response = ""
+        conversationMessages = []
+        vm.turns = []
+        vm.followUpText = ""
         vm.errorMessage = nil
+        vm.isCopied = false
         vm.isLoading = !query.isEmpty
 
-        // orderFront on a nonactivatingPanel brings the window to the top without
-        // stealing key focus from the browser. The frontmost app stays unchanged,
-        // so no JS blur/visibilitychange event fires in the page.
         panel?.orderFrontRegardless()
+        installKeyMonitor()
 
         guard !query.isEmpty else { return }
 
+        if let s = Config.systemPrompt {
+            conversationMessages.append(ConversationMessage(role: .system, content: s))
+        }
+        startTurn(userText: query)
+    }
+
+    /// Restores a history entry and allows follow-up questions.
+    func show(entry: HistoryEntry) {
+        if panel == nil { buildPanel() }
+        streamTask?.cancel()
+        vm.errorMessage = nil
+        vm.isCopied = false
+        vm.isLoading = false
+        vm.followUpText = ""
+        vm.turns = [OverlayViewModel.Turn(query: entry.query, response: entry.response)]
+
+        conversationMessages = []
+        if let s = Config.systemPrompt {
+            conversationMessages.append(ConversationMessage(role: .system, content: s))
+        }
+        conversationMessages.append(ConversationMessage(role: .user, content: entry.query))
+        conversationMessages.append(ConversationMessage(role: .assistant, content: entry.response))
+
+        panel?.orderFrontRegardless()
+        installKeyMonitor()
+    }
+
+    func hide() {
+        streamTask?.cancel()
+        removeKeyMonitor()
+        panel?.orderOut(nil)
+    }
+
+    // MARK: - Conversation
+
+    func sendFollowUp(_ text: String) {
+        guard !vm.isLoading else { return }
+        startTurn(userText: text)
+    }
+
+    private func startTurn(userText: String) {
+        conversationMessages.append(ConversationMessage(role: .user, content: userText))
+
+        let turnIndex = vm.turns.count
+        vm.turns.append(OverlayViewModel.Turn(query: userText, response: ""))
+        vm.isLoading = true
+        vm.errorMessage = nil
+
+        let isFirstTurn = turnIndex == 0
+        let firstQuery = vm.turns.first?.query ?? userText
+        let msgSnapshot = conversationMessages
+
         streamTask = Task {
             do {
-                let stream = try await AIService.query(query)
+                let stream = try await AIService.query(msgSnapshot)
+                var fullResponse = ""
                 for try await chunk in stream {
+                    fullResponse += chunk
                     await MainActor.run {
-                        vm.response += chunk
+                        guard turnIndex < vm.turns.count else { return }
+                        var updated = vm.turns[turnIndex]
+                        updated.response += chunk
+                        vm.turns[turnIndex] = updated
                     }
                 }
-                await MainActor.run { vm.isLoading = false }
+                let completedResponse = fullResponse
+                await MainActor.run {
+                    vm.isLoading = false
+                    conversationMessages.append(
+                        ConversationMessage(role: .assistant, content: completedResponse)
+                    )
+                    if isFirstTurn {
+                        HistoryStore.shared.add(query: firstQuery, response: completedResponse)
+                    }
+                }
             } catch {
                 await MainActor.run {
                     vm.isLoading = false
@@ -40,20 +109,36 @@ class OverlayWindowController: NSObject, NSWindowDelegate {
         }
     }
 
-    func hide() {
-        streamTask?.cancel()
-        panel?.orderOut(nil)
+    // MARK: - ESC key (global monitor fires even when another app is frontmost)
+
+    private func installKeyMonitor() {
+        guard keyEventMonitor == nil else { return }
+        keyEventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, event.keyCode == 53, self.panel?.isVisible == true else { return }
+            Task { @MainActor in self.hide() }
+        }
     }
+
+    private func removeKeyMonitor() {
+        if let m = keyEventMonitor {
+            NSEvent.removeMonitor(m)
+            keyEventMonitor = nil
+        }
+    }
+
+    deinit { removeKeyMonitor() }
+
+    // MARK: - Panel
 
     private func buildPanel() {
         let p = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 580, height: 420),
+            contentRect: NSRect(x: 0, y: 0, width: 580, height: 440),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
-        p.title = "Blind Spot"
-        p.sharingType = .none          // invisible to all screen capture tools
+        p.title = "BlindSpot"
+        p.sharingType = .none
         p.level = .floating
         p.isMovableByWindowBackground = true
         p.titlebarAppearsTransparent = true
@@ -61,14 +146,19 @@ class OverlayWindowController: NSObject, NSWindowDelegate {
         p.center()
 
         p.contentView = NSHostingView(
-            rootView: OverlayView(vm: vm, onClose: { [weak self] in self?.hide() })
-                .background(.ultraThickMaterial)
-                .cornerRadius(12)
+            rootView: OverlayView(
+                vm: vm,
+                onClose: { [weak self] in self?.hide() },
+                onFollowUp: { [weak self] text in self?.sendFollowUp(text) }
+            )
+            .background(.ultraThickMaterial)
+            .cornerRadius(12)
         )
         self.panel = p
     }
 
     func windowWillClose(_ notification: Notification) {
         streamTask?.cancel()
+        removeKeyMonitor()
     }
 }
