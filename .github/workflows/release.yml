@@ -114,7 +114,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.meta.outputs.version }}
-          name: BlindSpot ${{ steps.meta.outputs.version }}
+          name: BlindSpot ${{ steps.meta.outputs.version }} (Beta)
+          prerelease: true
           generate_release_notes: true
           body: |
             ## Install
