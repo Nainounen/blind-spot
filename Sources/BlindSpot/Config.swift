@@ -22,7 +22,7 @@ enum Provider: String, CaseIterable {
     var defaultModel: String {
         switch self {
         case .openai:    return "gpt-4o"
-        case .anthropic: return "claude-opus-4-5"
+        case .anthropic: return "claude-sonnet-4-5"
         case .gemini:    return "gemini-2.5-flash"
         case .deepseek:  return "deepseek-chat"
         case .grok:      return "grok-3"
