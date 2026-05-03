@@ -125,7 +125,7 @@ private extension Provider {
     var menuLabel: String {
         switch self {
         case .openai:    return "OpenAI  (gpt-4o)"
-        case .anthropic: return "Anthropic  (claude-opus-4-5)"
+        case .anthropic: return "Anthropic  (claude-sonnet-4-5)"
         case .gemini:    return "Gemini  (gemini-2.5-flash)"
         case .deepseek:  return "DeepSeek  (deepseek-chat)"
         case .grok:      return "Grok  (grok-3)"

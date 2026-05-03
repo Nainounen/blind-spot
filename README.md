@@ -38,7 +38,7 @@ brew update && brew upgrade --cask blindspot
 
 On first launch, BlindSpot walks you through three steps:
 
-1. **Choose a provider** — OpenAI, Anthropic, Gemini, DeepSeek, or Ollama (runs locally, no key needed)
+1. **Choose a provider** — OpenAI, Anthropic, Gemini, DeepSeek, Grok, or Ollama (runs locally, no key needed)
 2. **Paste your API key** — saved on your Mac only, never sent anywhere except your chosen provider
 3. **Allow Accessibility access** — lets the app read your selected text and listen for the hotkey
 
@@ -51,9 +51,10 @@ Once done, the **✦** icon appears in your menu bar. Select any text anywhere a
 | Provider | Default model | API key |
 |---|---|---|
 | OpenAI | GPT-4o | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
-| Anthropic | Claude Opus | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
+| Anthropic | Claude Sonnet | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
 | Google Gemini | Gemini 2.5 Flash | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) |
 | DeepSeek | DeepSeek Chat | [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys) |
+| xAI Grok | Grok 3 | [console.x.ai](https://console.x.ai) |
 | Ollama | Llama 3.2 | No key — runs entirely on your Mac |
 
 Switch providers at any time from the **✦** menu.
