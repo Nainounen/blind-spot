@@ -282,20 +282,35 @@ struct SettingsView: View {
 
     private var accessibilitySection: some View {
         SettingsSection(title: "Accessibility") {
-            HStack {
-                if axGranted {
+            if !axGranted {
+                HStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Accessibility access required")
+                            .font(.callout.bold())
+                        Text("BlindSpot can't read selected text or listen for the hotkey until you grant access.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Open Settings") {
+                        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+                        NSWorkspace.shared.open(url)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+                .padding(10)
+                .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.orange.opacity(0.3), lineWidth: 1))
+            } else {
+                HStack {
                     Label("Granted", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-                } else {
-                    Label("Not granted", systemImage: "xmark.circle").foregroundStyle(.red)
+                    Spacer()
                 }
-                Spacer()
-                Button("Open System Settings") {
-                    let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-                    NSWorkspace.shared.open(url)
-                }
-                .buttonStyle(.borderless)
+                .font(.callout)
             }
-            .font(.callout)
         }
         .onAppear {
             // Poll for AX status
@@ -358,7 +373,7 @@ struct SettingsView: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 6))
 
-            HStack(alignment: .top, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
                 Text("Sent as the `system` message to every request. Leave empty to disable. Example: \"Reply in one short sentence in the user's language.\"")
                     .font(.caption)
                     .foregroundStyle(.secondary)

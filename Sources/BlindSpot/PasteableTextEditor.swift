@@ -17,23 +17,22 @@ struct PasteableTextEditor: NSViewRepresentable {
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
+        scrollView.backgroundColor = .clear
+        scrollView.drawsBackground = false
 
         let tv = EditingTextView()
         tv.delegate = context.coordinator
-        tv.font = font
-        tv.textColor = .labelColor
-        tv.backgroundColor = .clear
-        tv.drawsBackground = false
         tv.isEditable = true
         tv.isSelectable = true
         tv.isRichText = false
         tv.isAutomaticQuoteSubstitutionEnabled = false
         tv.isAutomaticLinkDetectionEnabled = false
+        tv.backgroundColor = .clear
+        tv.drawsBackground = false
         tv.textContainerInset = NSSize(width: 6, height: 6)
-        tv.string = text
+        tv.typingAttributes = [.font: font, .foregroundColor: NSColor.labelColor]
+        setAttributedText(tv, to: text)
 
-        scrollView.backgroundColor = .clear
-        scrollView.drawsBackground = false
         scrollView.documentView = tv
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak tv] in
@@ -45,7 +44,13 @@ struct PasteableTextEditor: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let tv = scrollView.documentView as? NSTextView else { return }
-        if tv.string != text { tv.string = text }
+        if tv.string != text { setAttributedText(tv, to: text) }
+    }
+
+    private func setAttributedText(_ tv: NSTextView, to string: String) {
+        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.labelColor]
+        tv.textStorage?.setAttributedString(NSAttributedString(string: string, attributes: attrs))
+        tv.typingAttributes = attrs
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
@@ -67,16 +72,16 @@ private final class EditingTextView: NSTextView {
         guard mods.contains(.command) else { return super.performKeyEquivalent(with: event) }
 
         let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
-        let action: Selector?
         switch key {
-        case "v": action = #selector(NSText.paste(_:))
-        case "c": action = #selector(NSText.copy(_:))
-        case "x": action = #selector(NSText.cut(_:))
-        case "a": action = #selector(NSResponder.selectAll(_:))
-        case "z": action = mods.contains(.shift) ? Selector(("redo:")) : Selector(("undo:"))
+        case "v": paste(nil);      return true
+        case "c": copy(nil);       return true
+        case "x": cut(nil);        return true
+        case "a": selectAll(nil);  return true
+        case "z":
+            if mods.contains(.shift) { undoManager?.redo() }
+            else                     { undoManager?.undo() }
+            return true
         default:  return super.performKeyEquivalent(with: event)
         }
-        guard let sel = action else { return super.performKeyEquivalent(with: event) }
-        return NSApp.sendAction(sel, to: nil, from: self)
     }
 }

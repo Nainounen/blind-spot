@@ -11,6 +11,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Provide Edit-menu keyboard shortcuts (Cmd+V/C/X/A/Z) for all text
+        // fields and text views. The menu bar stays hidden in .accessory policy
+        // but the key equivalents are registered and work globally.
+        NSApp.mainMenu = buildEditMenu()
+
         // Menu bar icon — always present
         menuBarController = MenuBarController(
             onSettings: { [weak self] in self?.settingsController.show() },
@@ -84,5 +89,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func showOverlay(entry: HistoryEntry) {
         if overlayController == nil { overlayController = OverlayWindowController() }
         overlayController?.show(entry: entry)
+    }
+
+    private func buildEditMenu() -> NSMenu {
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Undo",  action: Selector(("undo:")),  keyEquivalent: "z")
+        let redo = NSMenuItem(title: "Redo", action: Selector(("redo:")),  keyEquivalent: "z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        editMenu.addItem(redo)
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Cut",        action: #selector(NSText.cut(_:)),       keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy",       action: #selector(NSText.copy(_:)),      keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste",      action: #selector(NSText.paste(_:)),     keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+
+        let editItem = NSMenuItem()
+        editItem.submenu = editMenu
+        let menu = NSMenu()
+        menu.addItem(editItem)
+        return menu
     }
 }

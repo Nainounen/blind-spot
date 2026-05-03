@@ -121,7 +121,6 @@ struct OnboardingView: View {
             }
         }
         .buttonStyle(.borderedProminent)
-        .disabled(step == .accessibility && !axGranted)
         .keyboardShortcut(.return, modifiers: [])
     }
 
@@ -349,6 +348,13 @@ private struct AccessibilityStep: View {
             }
 
             Spacer()
+
+            if !granted {
+                Text("You can skip this and grant access later in Settings.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(.bottom, 4)
+            }
         }
     }
 }
@@ -449,7 +455,7 @@ private extension Step {
         case .welcome:       return "Get Started"
         case .provider:      return "Next"
         case .apiKey:        return "Save & Continue"
-        case .accessibility: return "Continue"
+        case .accessibility: return "Continue"  // enabled even if not yet granted
         case .done:          return "Done"
         }
     }
