@@ -73,9 +73,3 @@ Switch providers at any time from the **✦** menu.
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build from source and submit changes.
-
----
-
-## License
-
-MIT
