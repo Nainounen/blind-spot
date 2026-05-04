@@ -182,6 +182,6 @@ guard let png = bmp.representation(using: .png, properties: [:]) else {
     exit(1)
 }
 
-let outURL = URL(fileURLWithPath: "BlindSpot-dmg-bg.png")
+let outURL = URL(fileURLWithPath: "assets/BlindSpot-dmg-bg.png")
 try png.write(to: outURL)
 print("✓ Wrote \(outURL.path) (\(Int(pixelW))x\(Int(pixelH)) px, logical \(Int(logicalW))x\(Int(logicalH)))")

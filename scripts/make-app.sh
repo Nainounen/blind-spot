@@ -3,7 +3,7 @@
 # Usage: ./make-app.sh [version]
 
 set -e
-cd "$(dirname "$0")"
+cd "$(git rev-parse --show-toplevel)"
 
 VERSION="${1:-1.0.0}"
 APP="BlindSpot.app"
@@ -15,9 +15,9 @@ swift build -c release --arch arm64 --arch x86_64 2>&1
 BUILD_PATH=$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)
 
 # Generate icon if ICNS doesn't exist yet
-if [[ ! -f "BlindSpot.icns" ]]; then
+if [[ ! -f "assets/BlindSpot.icns" ]]; then
     echo "Generating app icon…"
-    swift make-icon.swift
+    swift scripts/make-icon.swift
 fi
 
 echo "Assembling $APP…"
@@ -26,7 +26,7 @@ mkdir -p "$APP/Contents/MacOS"
 mkdir -p "$APP/Contents/Resources"
 
 cp "$BUILD_PATH/BlindSpot" "$APP/Contents/MacOS/BlindSpot"
-cp BlindSpot.icns "$APP/Contents/Resources/BlindSpot.icns"
+cp assets/BlindSpot.icns "$APP/Contents/Resources/BlindSpot.icns"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

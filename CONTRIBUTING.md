@@ -17,21 +17,22 @@ Thanks for your interest. This document covers how to build the project locally,
 ```bash
 git clone https://github.com/Nainounen/blind-spot.git
 cd blind-spot
-./make-app.sh        # builds BlindSpot.app in the repo root
+./scripts/make-app.sh   # builds BlindSpot.app in the repo root
 open BlindSpot.app
+```
+
+For local dev with accessibility permissions (run once, then grant AX in System Settings):
+
+```bash
+./scripts/make-dev-app.sh --run
 ```
 
 To run directly without packaging:
 
 ```bash
-./run.sh
-```
-
-Both scripts accept an optional provider flag:
-
-```bash
-./run.sh --provider anthropic
-./run.sh --provider ollama --model mistral
+./scripts/run.sh
+./scripts/run.sh --provider anthropic
+./scripts/run.sh --provider ollama --model mistral
 ```
 
 ---
@@ -79,8 +80,8 @@ GitHub Actions reads `VERSION`, checks whether a release for that version alread
 To test the DMG locally before merging:
 
 ```bash
-brew install create-dmg   # one-time
-./make-release.sh         # reads VERSION automatically
+brew install create-dmg        # one-time
+./scripts/make-release.sh      # reads VERSION automatically
 open dist/BlindSpot-*.dmg
 ```
 
