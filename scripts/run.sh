@@ -1,6 +1,6 @@
 #!/bin/zsh
 set -e
-cd "$(dirname "$0")"
+cd "$(git rev-parse --show-toplevel)"
 
 # Build
 swift build -c release 2>&1

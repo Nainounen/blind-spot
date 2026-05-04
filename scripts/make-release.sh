@@ -13,7 +13,7 @@
 #   dist/BlindSpot-<version>.dmg.sha256
 
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(git rev-parse --show-toplevel)"
 
 VERSION="${1:-}"
 if [[ -z "$VERSION" ]]; then
@@ -38,10 +38,10 @@ DMG="$DIST/BlindSpot-${VERSION}.dmg"
 VOLNAME="BlindSpot ${VERSION}"
 
 # 1. Build the universal .app bundle with the right CFBundleVersion baked in.
-./make-app.sh "$VERSION"
+./scripts/make-app.sh "$VERSION"
 
 # 2. Generate the DMG background artwork used by Finder.
-swift make-dmg-bg.swift
+swift scripts/make-dmg-bg.swift
 
 # 3. Package the app into a DMG with a drag-to-Applications layout.
 #    create-dmg handles the Finder window cosmetics without needing AppleScript
@@ -51,7 +51,7 @@ rm -f "$DMG"
 
 create-dmg \
     --volname    "$VOLNAME" \
-    --background "BlindSpot-dmg-bg.png" \
+    --background "assets/BlindSpot-dmg-bg.png" \
     --window-pos  200 120 \
     --window-size 600 400 \
     --icon-size   128 \

@@ -91,7 +91,7 @@ jobs:
 
       - name: Build universal BlindSpot.app + DMG
         if: steps.check.outputs.skipped == 'false'
-        run: ./make-release.sh "${{ steps.meta.outputs.version }}"
+        run: ./scripts/make-release.sh "${{ steps.meta.outputs.version }}"
 
       - name: Capture sha256
         id: sha

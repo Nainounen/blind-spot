@@ -119,7 +119,7 @@ let specs: [(file: String, size: Int)] = [
 // MARK: - Main
 
 let fm  = FileManager.default
-let dir = URL(fileURLWithPath: "BlindSpot.iconset")
+let dir = URL(fileURLWithPath: "assets/BlindSpot.iconset")
 try? fm.removeItem(at: dir)
 try  fm.createDirectory(at: dir, withIntermediateDirectories: true)
 
@@ -134,7 +134,7 @@ for spec in specs {
 // Convert to ICNS
 let result = Process()
 result.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
-result.arguments = ["-c", "icns", "BlindSpot.iconset"]
+result.arguments = ["-c", "icns", "assets/BlindSpot.iconset", "--output", "assets"]
 try result.run(); result.waitUntilExit()
 
 try? fm.removeItem(at: dir)
