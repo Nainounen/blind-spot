@@ -138,7 +138,9 @@ class OverlayWindowController: NSObject, NSWindowDelegate {
             defer: false
         )
         p.title = "BlindSpot"
-        p.sharingType = .none
+        // BLIND_SPOT_DEMO=1 makes the overlay visible to screen recorders (for demos/screenshots only)
+        let isDemo = ProcessInfo.processInfo.environment["BLIND_SPOT_DEMO"] == "1"
+        p.sharingType = isDemo ? .readOnly : .none
         p.level = .floating
         p.isMovableByWindowBackground = true
         p.titlebarAppearsTransparent = true
