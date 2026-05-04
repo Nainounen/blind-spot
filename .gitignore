@@ -21,3 +21,4 @@ test-app/*.log
 
 # Claude Code
 .claude/settings.local.json
+BlindSpot-Dev.app
