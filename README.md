@@ -72,8 +72,10 @@ Switch providers at any time from the **✦** menu.
 
 - API keys are stored locally at `~/.config/blind-spot/keys/` and sent only to your chosen provider
 - Selected text goes to your provider's API to generate a response, subject to their privacy policy
-- The answer overlay is excluded from screen capture at the system level — it does not appear in screenshots, recordings, or video calls
+- The answer overlay is excluded from screen capture via `NSWindowSharingNone`, which operates at the compositor level — it does not appear in screenshots, ScreenCaptureKit recordings, or video calls (Zoom, Teams, Meet, etc.). On macOS 14.4+, the system screen picker also hides the window entirely, so it cannot be accidentally selected when sharing your screen
 - BlindSpot has no Dock icon and collects no data of its own
+
+**Limitations:** The overlay is not protected against `CGDisplayCreateImage` or Accessibility API captures made by apps that already hold Screen Recording permission. A physical camera pointed at your display is also unaffected.
 
 ---
 
