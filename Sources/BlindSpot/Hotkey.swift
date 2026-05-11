@@ -15,6 +15,11 @@ struct Hotkey: Codable, Equatable {
         modifiers: NSEvent.ModifierFlags([.command, .shift]).rawValue
     )
 
+    static let defaultPanic = Hotkey(
+        keyCode: 12, // Q
+        modifiers: NSEvent.ModifierFlags([.command, .option]).rawValue
+    )
+
     var modifierFlags: NSEvent.ModifierFlags {
         NSEvent.ModifierFlags(rawValue: modifiers)
     }
