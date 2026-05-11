@@ -76,6 +76,8 @@ struct SettingsView: View {
                     Divider()
                     hotkeySection
                     Divider()
+                    panicHotkeySection
+                    Divider()
                     systemPromptSection
                     Divider()
                     versionSection
@@ -355,6 +357,31 @@ struct SettingsView: View {
                 Spacer()
                 if prefs.hotkey != .default {
                     Button("Reset to ⌘⇧Space") { prefs.resetHotkey() }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var panicHotkeySection: some View {
+        SettingsSection(title: "Panic Shortcut") {
+            HotkeyRecorder(
+                hotkey: prefs.panicHotkey,
+                isRecording: Binding(
+                    get: { prefs.isRecordingPanicHotkey },
+                    set: { prefs.isRecordingPanicHotkey = $0 }
+                ),
+                onCapture: { prefs.setPanicHotkey($0) }
+            )
+
+            HStack {
+                Text("Force-quits BlindSpot instantly from anywhere.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if prefs.panicHotkey != .defaultPanic {
+                    Button("Reset to ⌘⌥Q") { prefs.resetPanicHotkey() }
                         .buttonStyle(.borderless)
                         .foregroundStyle(.secondary)
                 }

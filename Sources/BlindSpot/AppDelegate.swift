@@ -4,6 +4,7 @@ import Combine
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyManager: HotkeyManager?
+    private var panicHotkeyManager: HotkeyManager?
     private var overlayController: OverlayWindowController?
     private var menuBarController: MenuBarController?
     private var onboardingController = OnboardingWindowController()
@@ -29,11 +30,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         manager.start()
         hotkeyManager = manager
 
+        // Panic hotkey — force-quits the app immediately
+        let panicManager = HotkeyManager(hotkey: PreferencesStore.shared.panicHotkey) {
+            exit(0)
+        }
+        panicManager.start()
+        panicHotkeyManager = panicManager
+
         // Live-update the tap when the user changes the hotkey in Settings.
         PreferencesStore.shared.$hotkey
             .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] hk in self?.hotkeyManager?.update(to: hk) }
+            .store(in: &cancellables)
+
+        PreferencesStore.shared.$panicHotkey
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] hk in self?.panicHotkeyManager?.update(to: hk) }
             .store(in: &cancellables)
 
         // Pause the tap while the user is recording so we don't swallow the
@@ -43,6 +57,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] recording in
                 if recording { self?.hotkeyManager?.pause() }
                 else         { self?.hotkeyManager?.resume() }
+            }
+            .store(in: &cancellables)
+
+        PreferencesStore.shared.$isRecordingPanicHotkey
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] recording in
+                if recording { self?.panicHotkeyManager?.pause() }
+                else         { self?.panicHotkeyManager?.resume() }
             }
             .store(in: &cancellables)
 

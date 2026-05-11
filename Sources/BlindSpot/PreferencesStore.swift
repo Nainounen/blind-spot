@@ -18,6 +18,8 @@ final class PreferencesStore: ObservableObject {
     /// `HotkeyManager` watches this and pauses its event tap so the user can
     /// re-record the same combo they're currently bound to.
     @Published var isRecordingHotkey: Bool = false
+    @Published var panicHotkey: Hotkey
+    @Published var isRecordingPanicHotkey: Bool = false
 
     /// Names of models installed on the local Ollama server (e.g. `llama3.2:latest`).
     @Published var installedOllamaModels: [String] = []
@@ -43,6 +45,12 @@ final class PreferencesStore: ObservableObject {
             hotkey = hk
         } else {
             hotkey = .default
+        }
+        if let data = UserDefaults.standard.data(forKey: "panicHotkey"),
+           let hk = try? JSONDecoder().decode(Hotkey.self, from: data) {
+            panicHotkey = hk
+        } else {
+            panicHotkey = .defaultPanic
         }
         systemPrompt = Self.loadSystemPromptFromDisk()
     }
@@ -111,6 +119,15 @@ final class PreferencesStore: ObservableObject {
     }
 
     func resetHotkey() { setHotkey(.default) }
+
+    func setPanicHotkey(_ hk: Hotkey) {
+        panicHotkey = hk
+        if let data = try? JSONEncoder().encode(hk) {
+            defaults.set(data, forKey: "panicHotkey")
+        }
+    }
+
+    func resetPanicHotkey() { setPanicHotkey(.defaultPanic) }
 
     // MARK: - Ollama
 

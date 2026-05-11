@@ -53,6 +53,17 @@ Once done, the **✦** icon appears in your menu bar. Select any text anywhere a
 
 ---
 
+## Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| ⌘⇧Space | Query the selected text |
+| ⌘⌥Q | Force-quit BlindSpot |
+
+Both are configurable in Settings. The panic shortcut kills the process immediately — useful when the overlay is stuck or you need to exit fast.
+
+---
+
 ## AI providers
 
 | Provider | Default model | API key |
