@@ -135,6 +135,20 @@ struct OnboardingView: View {
     }
 
     private func finish() {
+        // Update the Default profile with the chosen provider and model
+        let store = ProfilesStore.shared
+        if let idx = store.profiles.firstIndex(where: { $0.name == "Default" }) {
+            var updated = store.profiles[idx]
+            updated.provider = selectedProvider
+            updated.model = selectedProvider.defaultModel
+            store.update(updated)
+        } else {
+            store.create(AIProfile(
+                name: "Default",
+                provider: selectedProvider,
+                model: selectedProvider.defaultModel
+            ))
+        }
         PreferencesStore.shared.completeOnboarding()
         onComplete()
     }
@@ -352,7 +366,7 @@ private struct AccessibilityStep: View {
             Spacer()
 
             if !granted {
-                Text("You can skip this and grant access later in Settings.")
+                Text("You can also skip this and grant access later in Settings.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .padding(.bottom, 4)
@@ -406,6 +420,13 @@ private struct DoneStep: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 48)
                     .padding(.top, 4)
+
+                Text("A \"Default\" AI profile has been created for you. You can add more profiles (e.g., \"Fast\", \"Creative\") in Settings → Profiles.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 48)
+                    .padding(.top, 8)
             }
 
             Button("Start Using BlindSpot") { onComplete() }
