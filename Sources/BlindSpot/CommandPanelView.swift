@@ -186,7 +186,7 @@ private struct ConversationRow: View {
                 } label: {
                     Image(systemName: "trash")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.red)
                         .frame(width: 22, height: 22)
                         .contentShape(Rectangle())
                 }
@@ -375,30 +375,37 @@ private struct TurnView: View {
                     .foregroundStyle(.red)
                     .font(.callout)
             } else if !turn.response.isEmpty {
-                ZStack(alignment: .topTrailing) {
+                VStack(alignment: .leading, spacing: 6) {
                     MarkdownView(text: turn.response)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     if isHovered {
-                        Button {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(turn.response, forType: .string)
-                            isCopied = true
-                            Task {
-                                try? await Task.sleep(nanoseconds: 1_500_000_000)
-                                isCopied = false
-                            }
-                        } label: {
-                            Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
-                                .font(.caption)
+                        HStack {
+                            Spacer()
+                            Button {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(turn.response, forType: .string)
+                                isCopied = true
+                                Task {
+                                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                                    isCopied = false
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
+                                        .font(.caption2)
+                                    Text(isCopied ? "Copied" : "Copy")
+                                        .font(.caption2)
+                                }
                                 .foregroundStyle(isCopied ? .green : .secondary)
-                                .frame(width: 26, height: 26)
-                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 5))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 5))
+                            }
+                            .buttonStyle(.plain)
+                            .help("Copy response")
                         }
-                        .buttonStyle(.plain)
-                        .help("Copy response")
-                        .offset(x: 4, y: -4)
                     }
                 }
             }

@@ -33,23 +33,21 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         if window == nil {
             let w = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 820, height: 620),
-                styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
             )
             w.title = "BlindSpot Settings"
-            w.minSize = NSSize(width: 760, height: 480)
-            // Prevent AppKit from auto-releasing the window on close.
-            // Without this, AppKit's internal release + our ARC release = double-free → crash.
+            w.titleVisibility = .hidden
+            w.titlebarAppearsTransparent = true
+            w.minSize = NSSize(width: 720, height: 480)
             w.isReleasedWhenClosed = false
             w.contentView = NSHostingView(rootView: SettingsView())
             w.center()
             w.delegate = self
             window = w
         }
-        // Dismiss the command panel if it's open — it's distracting alongside Settings.
         CommandPanelController.shared.hide()
-        // Show BlindSpot in Dock + App Switcher while Settings is open
         NSApp.setActivationPolicy(.regular)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -77,46 +75,63 @@ struct SettingsView: View {
     var body: some View {
         HStack(spacing: 0) {
             sidebar
-            Divider()
+            Divider().opacity(0.4)
             contentPane
         }
         .frame(minWidth: 720, maxWidth: .infinity, minHeight: 480, maxHeight: .infinity)
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(.ultraThinMaterial)
+        .ignoresSafeArea()
     }
 
     // MARK: - Sidebar
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 2) {
+            // Space for transparent title bar / traffic lights
+            Spacer().frame(height: 48)
+
+            // App identity
+            HStack(spacing: 8) {
+                Image(systemName: "sparkle")
+                    .font(.callout)
+                    .foregroundStyle(.purple)
+                Text("BlindSpot")
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(.primary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 12)
+
             ForEach(SettingsTab.allCases, id: \.self) { tab in
                 sidebarButton(tab)
             }
             Spacer()
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 12)
-        .frame(width: 155)
-        .background(Color(NSColor.controlBackgroundColor))
+        .frame(width: 160)
+        .background(Color.primary.opacity(0.03))
     }
 
     private func sidebarButton(_ tab: SettingsTab) -> some View {
         Button { selectedTab = tab } label: {
             HStack(spacing: 8) {
                 Image(systemName: tab.icon)
-                    .frame(width: 16)
+                    .font(.caption)
+                    .frame(width: 14)
+                    .foregroundStyle(selectedTab == tab ? Color.accentColor : .secondary)
                 Text(tab.rawValue)
                 Spacer()
                 if tab == .accessibility && !axGranted {
-                    Circle().fill(.orange).frame(width: 6, height: 6)
+                    Circle().fill(.orange).frame(width: 5, height: 5)
                 }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
             .background(
-                selectedTab == tab ? Color.accentColor.opacity(0.15) : Color.clear,
+                selectedTab == tab ? Color.accentColor.opacity(0.12) : Color.clear,
                 in: RoundedRectangle(cornerRadius: 6)
             )
-            .contentShape(Rectangle())
+            .contentShape(RoundedRectangle(cornerRadius: 6))
         }
         .buttonStyle(.plain)
         .foregroundStyle(selectedTab == tab ? .primary : .secondary)
@@ -128,7 +143,10 @@ struct SettingsView: View {
     @ViewBuilder
     private var contentPane: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 20) {
+                // Space for title bar
+                Spacer().frame(height: 28)
+
                 switch selectedTab {
                 case .profiles:      ProfilesTabView()
                 case .apiKeys:       allKeysSection
@@ -138,7 +156,8 @@ struct SettingsView: View {
                 case .about:         versionSection
                 }
             }
-            .padding(24)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -534,24 +553,35 @@ private struct ModelComboBox: NSViewRepresentable {
 
 private struct ProfileRow: View {
     let profile: AIProfile
+    let isSelected: Bool
     let isActive: Bool
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(profile.name).font(.callout)
+                Text(profile.name)
+                    .font(.callout)
+                    .fontWeight(isSelected ? .medium : .regular)
                 Text(profile.provider.displayName)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
             Spacer()
             if isActive {
-                Image(systemName: "checkmark")
+                Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(Color.accentColor)
-                    .font(.caption.bold())
+                    .font(.caption)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(
+            isSelected
+                ? Color.accentColor.opacity(0.12)
+                : Color.clear,
+            in: RoundedRectangle(cornerRadius: 7)
+        )
+        .contentShape(Rectangle())
     }
 }
 
@@ -570,45 +600,55 @@ private struct ProfilesTabView: View {
         HStack(alignment: .top, spacing: 0) {
             // Profile list
             VStack(spacing: 0) {
-                List(selection: $selectedId) {
-                    ForEach(Array(profiles)) { profile in
-                        ProfileRow(profile: profile, isActive: profile.id == ProfilesStore.shared.activeProfileId)
-                            .tag(profile.id)
+                ScrollView {
+                    LazyVStack(spacing: 2) {
+                        ForEach(profiles) { profile in
+                            ProfileRow(
+                                profile: profile,
+                                isSelected: profile.id == selectedId,
+                                isActive: profile.id == ProfilesStore.shared.activeProfileId
+                            )
+                            .onTapGesture { selectedId = profile.id }
+                        }
                     }
+                    .padding(6)
                 }
-                .listStyle(.sidebar)
 
-                Divider()
+                Divider().opacity(0.4)
 
-                HStack(spacing: 0) {
+                HStack(spacing: 2) {
                     Button(action: addProfile) {
                         Image(systemName: "plus")
-                            .frame(width: 28, height: 28)
+                            .frame(width: 26, height: 26)
                     }
                     .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
 
                     Button(action: duplicateSelected) {
                         Image(systemName: "doc.on.doc")
-                            .frame(width: 28, height: 28)
+                            .frame(width: 26, height: 26)
                     }
                     .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
                     .disabled(selectedId == nil)
 
                     Spacer()
 
                     Button(action: deleteSelected) {
-                        Image(systemName: "minus")
-                            .frame(width: 28, height: 28)
+                        Image(systemName: "trash")
+                            .frame(width: 26, height: 26)
                     }
                     .buttonStyle(.plain)
+                    .foregroundStyle(selectedId == nil || profiles.count <= 1 ? Color.secondary : Color.red)
                     .disabled(selectedId == nil || profiles.count <= 1)
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 6)
                 .frame(height: 32)
             }
             .frame(width: 180)
+            .background(Color.primary.opacity(0.03))
 
-            Divider()
+            Divider().opacity(0.4)
 
             // Profile editor
             if let d = draft {
@@ -684,22 +724,20 @@ private struct ProfileEditorView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 16) {
+
                 // Name
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Name")
-                        .font(.caption.uppercaseSmallCaps())
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 5) {
+                    fieldLabel("Name")
                     TextField("Profile name", text: $draft.name)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
+                        .glassField()
                         .onChange(of: draft.name) { _, _ in isDirty = true }
                 }
 
                 // Provider + Model
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Provider & Model")
-                        .font(.caption.uppercaseSmallCaps())
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 5) {
+                    fieldLabel("Provider & Model")
                     HStack(spacing: 8) {
                         Picker("", selection: Binding(
                             get: { draft.provider },
@@ -715,80 +753,77 @@ private struct ProfileEditorView: View {
                         }
                         .pickerStyle(.menu)
                         .labelsHidden()
-                        .frame(width: 130)
+                        .frame(width: 120)
 
-                        TextField("Model", text: $draft.model)
-                            .textFieldStyle(.roundedBorder)
+                        TextField("Model identifier", text: $draft.model)
+                            .textFieldStyle(.plain)
+                            .glassField()
                             .onChange(of: draft.model) { _, _ in isDirty = true }
                     }
                 }
 
                 // System Prompt
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("System Prompt")
-                        .font(.caption.uppercaseSmallCaps())
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 5) {
+                    fieldLabel("System Prompt")
                     NativeTextEditor(text: $draft.systemPrompt)
-                        .frame(height: 100)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .frame(height: 90)
+                        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .strokeBorder(Color.primary.opacity(0.12))
+                            RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
                         )
                         .onChange(of: draft.systemPrompt) { _, _ in isDirty = true }
                 }
 
-                // Max output tokens
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("Max Output Tokens")
-                            .font(.caption.uppercaseSmallCaps())
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Text("\(draft.maxOutputTokens)")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                // Max output tokens + Temperature in one card
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack {
+                            fieldLabel("Max Output Tokens")
+                            Spacer()
+                            Text("\(draft.maxOutputTokens)")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { Double(draft.maxOutputTokens) },
+                                set: { draft.maxOutputTokens = Int($0); isDirty = true }
+                            ),
+                            in: 256...16384, step: 256
+                        )
                     }
-                    Slider(
-                        value: Binding(
-                            get: { Double(draft.maxOutputTokens) },
-                            set: { draft.maxOutputTokens = Int($0); isDirty = true }
-                        ),
-                        in: 256...16384,
-                        step: 256
-                    )
-                }
 
-                // Temperature
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("Temperature")
-                            .font(.caption.uppercaseSmallCaps())
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Text(String(format: "%.1f", draft.temperature))
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                    Divider().opacity(0.4)
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack {
+                            fieldLabel("Temperature")
+                            Spacer()
+                            Text(String(format: "%.1f", draft.temperature))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { draft.temperature },
+                                set: { draft.temperature = $0; isDirty = true }
+                            ),
+                            in: 0.0...2.0, step: 0.1
+                        )
+                        Text("Lower = focused · Higher = creative")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
                     }
-                    Slider(
-                        value: Binding(
-                            get: { draft.temperature },
-                            set: { draft.temperature = $0; isDirty = true }
-                        ),
-                        in: 0.0...2.0,
-                        step: 0.1
-                    )
-                    Text("Lower values are more focused; higher values are more creative.")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
                 }
-
-                Divider()
+                .padding(14)
+                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
 
                 // Actions
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     if isActiveProfile {
-                        Label("Active profile", systemImage: "checkmark.circle.fill")
+                        Label("Active", systemImage: "checkmark.circle.fill")
                             .font(.callout)
                             .foregroundStyle(.green)
                     } else {
@@ -797,13 +832,13 @@ private struct ProfileEditorView: View {
                             isActiveProfile = true
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.small)
                     }
 
                     Spacer()
 
                     if isDirty {
                         Button("Discard") {
-                            // Re-read from store to discard
                             if let stored = ProfilesStore.shared.profiles.first(where: { $0.id == draft.id }) {
                                 draft = stored
                             }
@@ -811,6 +846,7 @@ private struct ProfileEditorView: View {
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
+                        .font(.callout)
                     }
 
                     Button("Save") {
@@ -819,10 +855,12 @@ private struct ProfileEditorView: View {
                         isDirty = false
                     }
                     .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
                     .disabled(!isDirty)
                 }
+                .padding(.top, 4)
             }
-            .padding(20)
+            .padding(18)
         }
         .onAppear {
             isActiveProfile = (draft.id == ProfilesStore.shared.activeProfileId)
@@ -839,9 +877,33 @@ private struct SettingsSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.caption.uppercaseSmallCaps())
+                .font(.caption2)
+                .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
+                .padding(.leading, 2)
             content
         }
     }
+}
+
+// MARK: - Glass field style helper
+
+private extension View {
+    func glassField() -> some View {
+        self
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+            )
+    }
+}
+
+private func fieldLabel(_ text: String) -> some View {
+    Text(text)
+        .font(.caption)
+        .fontWeight(.medium)
+        .foregroundStyle(.secondary)
 }
