@@ -1,6 +1,6 @@
 import Foundation
 
-enum Provider: String, CaseIterable {
+enum Provider: String, CaseIterable, Codable {
     case openai
     case anthropic
     case gemini

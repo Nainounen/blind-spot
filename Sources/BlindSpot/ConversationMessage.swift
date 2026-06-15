@@ -1,7 +1,7 @@
 import Foundation
 
-struct ConversationMessage {
-    enum Role: String {
+struct ConversationMessage: Codable {
+    enum Role: String, Codable {
         case system
         case user
         case assistant
