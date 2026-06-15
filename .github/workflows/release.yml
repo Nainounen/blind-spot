@@ -93,6 +93,36 @@ jobs:
         if: steps.check.outputs.skipped == 'false'
         run: ./scripts/make-release.sh "${{ steps.meta.outputs.version }}"
 
+      - name: Generate appcast.xml
+        if: steps.check.outputs.skipped == 'false'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${SPARKLE_PRIVATE_KEY:-}" ]]; then
+            echo "::warning::SPARKLE_PRIVATE_KEY secret not set — skipping appcast generation."
+            exit 0
+          fi
+          # Resolve Sparkle tools from the SPM artifacts cache
+          swift package resolve 2>/dev/null || true
+          SPARKLE_TOOLS=".build/artifacts/sparkle/Sparkle/bin"
+          # Write private key to temp file, generate appcast, clean up
+          KEYFILE=$(mktemp)
+          echo -n "$SPARKLE_PRIVATE_KEY" > "$KEYFILE"
+          "$SPARKLE_TOOLS/generate_appcast" \
+            --ed-key-file "$KEYFILE" \
+            --link "https://github.com/Nainounen/blind-spot/releases" \
+            dist/
+          rm -f "$KEYFILE"
+          # Commit appcast.xml back to main
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: update appcast for v${{ steps.meta.outputs.version }} [skip ci]"
+          git push
+
       - name: Capture sha256
         id: sha
         if: steps.check.outputs.skipped == 'false'
