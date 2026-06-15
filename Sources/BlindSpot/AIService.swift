@@ -18,39 +18,38 @@ enum AIService {
         }
     }
 
-    static func query(_ messages: [ConversationMessage]) async throws -> AsyncThrowingStream<String, Swift.Error> {
-        switch Config.provider {
+    static func query(
+        _ messages: [ConversationMessage],
+        profile: AIProfile
+    ) async throws -> AsyncThrowingStream<String, Swift.Error> {
+        switch profile.provider {
         case .openai:
             return try await queryOpenAICompatible(
-                messages,
-                provider: .openai,
+                messages, profile: profile,
                 endpoint: "https://api.openai.com/v1/chat/completions"
             )
         case .deepseek:
             return try await queryOpenAICompatible(
-                messages,
-                provider: .deepseek,
+                messages, profile: profile,
                 endpoint: "https://api.deepseek.com/v1/chat/completions"
             )
         case .grok:
             return try await queryOpenAICompatible(
-                messages,
-                provider: .grok,
+                messages, profile: profile,
                 endpoint: "https://api.x.ai/v1/chat/completions"
             )
         case .openrouter:
             return try await queryOpenAICompatible(
-                messages,
-                provider: .openrouter,
+                messages, profile: profile,
                 endpoint: "https://openrouter.ai/api/v1/chat/completions",
                 extraHeaders: [
                     "HTTP-Referer": "https://github.com/unveroleone/blind-spot",
                     "X-Title": "BlindSpot",
                 ]
             )
-        case .anthropic: return try await queryAnthropic(messages)
-        case .gemini:    return try await queryGemini(messages)
-        case .ollama:    return try await queryOllama(messages)
+        case .anthropic: return try await queryAnthropic(messages, profile: profile)
+        case .gemini:    return try await queryGemini(messages, profile: profile)
+        case .ollama:    return try await queryOllama(messages, profile: profile)
         }
     }
 
@@ -58,12 +57,12 @@ enum AIService {
 
     private static func queryOpenAICompatible(
         _ messages: [ConversationMessage],
-        provider: Provider,
+        profile: AIProfile,
         endpoint: String,
         extraHeaders: [String: String] = [:]
     ) async throws -> AsyncThrowingStream<String, Swift.Error> {
-        let key = Config.apiKey
-        guard !key.isEmpty else { throw Error.missingAPIKey(provider) }
+        let key = apiKey(for: profile.provider)
+        guard !key.isEmpty else { throw Error.missingAPIKey(profile.provider) }
 
         let apiMessages = messages.map { ["role": $0.role.rawValue, "content": $0.content] }
 
@@ -75,8 +74,9 @@ enum AIService {
             req.setValue(value, forHTTPHeaderField: header)
         }
         req.httpBody = try JSONSerialization.data(withJSONObject: [
-            "model": Config.model,
-            "max_tokens": Config.maxTokens,
+            "model": profile.model,
+            "max_tokens": profile.maxOutputTokens,
+            "temperature": profile.temperature,
             "stream": true,
             "messages": apiMessages,
         ])
@@ -107,13 +107,13 @@ enum AIService {
 
     // MARK: - Anthropic (SSE: content_block_delta / delta.text)
     //
-    // Anthropic requires: system at top-level, messages array must alternate
-    // user/assistant starting with user. Filter out system from messages.
+    // System prompt goes in a top-level "system" field, not inside messages.
 
     private static func queryAnthropic(
-        _ messages: [ConversationMessage]
+        _ messages: [ConversationMessage],
+        profile: AIProfile
     ) async throws -> AsyncThrowingStream<String, Swift.Error> {
-        let key = Config.apiKey
+        let key = apiKey(for: .anthropic)
         guard !key.isEmpty else { throw Error.missingAPIKey(.anthropic) }
 
         var req = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
@@ -128,8 +128,8 @@ enum AIService {
             .map { ["role": $0.role.rawValue, "content": $0.content] }
 
         var body: [String: Any] = [
-            "model": Config.model,
-            "max_tokens": Config.maxTokens,
+            "model": profile.model,
+            "max_tokens": profile.maxOutputTokens,
             "stream": true,
             "messages": apiMessages,
         ]
@@ -162,16 +162,16 @@ enum AIService {
 
     // MARK: - Gemini (SSE: candidates[0].content.parts[*].text)
     //
-    // Gemini uses "model" for the assistant role, not "assistant".
-    // System prompt goes in systemInstruction, not in contents.
+    // Assistant role maps to "model". System prompt goes in systemInstruction.
 
     private static func queryGemini(
-        _ messages: [ConversationMessage]
+        _ messages: [ConversationMessage],
+        profile: AIProfile
     ) async throws -> AsyncThrowingStream<String, Swift.Error> {
-        let key = Config.apiKey
+        let key = apiKey(for: .gemini)
         guard !key.isEmpty else { throw Error.missingAPIKey(.gemini) }
 
-        guard let escapedModel = Config.model.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+        guard let escapedModel = profile.model.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
               let escapedKey   = key.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(escapedModel):streamGenerateContent?alt=sse&key=\(escapedKey)")
         else { throw Error.emptyResponse }
@@ -184,13 +184,16 @@ enum AIService {
         let contents: [[String: Any]] = messages
             .filter { $0.role != .system }
             .map { m in
-                let role = m.role == .assistant ? "model" : "user"
-                return ["role": role, "parts": [["text": m.content]]]
+                ["role": m.role == .assistant ? "model" : "user",
+                 "parts": [["text": m.content]]]
             }
 
         var body: [String: Any] = [
             "contents": contents,
-            "generationConfig": ["maxOutputTokens": Config.maxTokens],
+            "generationConfig": [
+                "maxOutputTokens": profile.maxOutputTokens,
+                "temperature": profile.temperature,
+            ],
         ]
         if let s = systemText {
             body["systemInstruction"] = ["parts": [["text": s]]]
@@ -227,7 +230,8 @@ enum AIService {
     // MARK: - Ollama (newline-delimited JSON: message.content)
 
     private static func queryOllama(
-        _ messages: [ConversationMessage]
+        _ messages: [ConversationMessage],
+        profile: AIProfile
     ) async throws -> AsyncThrowingStream<String, Swift.Error> {
         let apiMessages = messages.map { ["role": $0.role.rawValue, "content": $0.content] }
 
@@ -235,9 +239,10 @@ enum AIService {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONSerialization.data(withJSONObject: [
-            "model": Config.model,
+            "model": profile.model,
             "stream": true,
             "messages": apiMessages,
+            "options": ["temperature": profile.temperature],
         ])
 
         let (stream, response) = try await URLSession.shared.bytes(for: req)
@@ -262,6 +267,28 @@ enum AIService {
     }
 
     // MARK: - Shared
+
+    // Reads API key from env vars first, then falls back to the per-provider key file.
+    // Called before the streaming Task starts, so no @MainActor isolation needed.
+    static func apiKey(for provider: Provider) -> String {
+        let env = ProcessInfo.processInfo.environment
+        let envKey: String? = {
+            switch provider {
+            case .openai:     return env["BLIND_SPOT_API_KEY"] ?? env["OPENAI_API_KEY"]
+            case .anthropic:  return env["ANTHROPIC_API_KEY"]
+            case .gemini:     return env["GEMINI_API_KEY"] ?? env["GOOGLE_API_KEY"]
+            case .deepseek:   return env["DEEPSEEK_API_KEY"]
+            case .grok:       return env["XAI_API_KEY"] ?? env["GROK_API_KEY"]
+            case .openrouter: return env["OPENROUTER_API_KEY"]
+            case .ollama:     return nil
+            }
+        }()
+        if let k = envKey, !k.isEmpty { return k }
+        let keyFile = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/blind-spot/keys/\(provider.rawValue)")
+        return (try? String(contentsOf: keyFile, encoding: .utf8))?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
 
     private static func validateHTTP(_ response: URLResponse) throws {
         guard let http = response as? HTTPURLResponse else { throw Error.emptyResponse }

@@ -1,11 +1,11 @@
 import AppKit
 import Combine
+import Sparkle
 
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyManager: HotkeyManager?
     private var panicHotkeyManager: HotkeyManager?
-    private var overlayController: OverlayWindowController?
     private var menuBarController: MenuBarController?
     private var onboardingController = OnboardingWindowController()
     private var settingsController = SettingsWindowController()
@@ -14,6 +14,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // AppKit from reaching "no windows" state, which can trigger termination in
     // some macOS activation-policy edge cases even with the delegate override.
     private var ghostWindow: NSWindow?
+    private var updaterController: SPUStandardUpdaterController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Provide Edit-menu keyboard shortcuts (Cmd+V/C/X/A/Z) for all text
@@ -26,10 +27,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ghost.isReleasedWhenClosed = false
         ghostWindow = ghost
 
+        // Auto-update via Sparkle. SUFeedURL and SUPublicEDKey must be set in Info.plist.
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
+
+        // Boot data-layer singletons (triggers migration if first launch)
+        _ = ProfilesStore.shared
+        _ = ConversationStore.shared
+
         // Menu bar icon — always present
         menuBarController = MenuBarController(
             onSettings: { [weak self] in self?.settingsController.show() },
-            onShowHistory: { [weak self] entry in self?.showOverlay(entry: entry) }
+            onShowConversation: { conversation in
+                CommandPanelController.shared.show(conversation: conversation)
+            },
+            onCheckForUpdates: { [weak self] in self?.checkForUpdates() }
         )
 
         // Global hotkey — read initial value from prefs and start listening
@@ -107,19 +122,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         TextCapture.getSelectedText { [weak self] text in
             DispatchQueue.main.async {
-                self?.showOverlay(query: text ?? "")
+                self?.showPanel(query: text ?? "")
             }
         }
     }
 
-    private func showOverlay(query: String) {
-        if overlayController == nil { overlayController = OverlayWindowController() }
-        overlayController?.show(query: query)
+    private func showPanel(query: String) {
+        CommandPanelController.shared.show(query: query.isEmpty ? nil : query)
     }
 
-    private func showOverlay(entry: HistoryEntry) {
-        if overlayController == nil { overlayController = OverlayWindowController() }
-        overlayController?.show(entry: entry)
+    func checkForUpdates() {
+        updaterController?.updater.checkForUpdates()
     }
 
     private func buildEditMenu() -> NSMenu {
