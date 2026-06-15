@@ -163,16 +163,36 @@ private func groupConversations(_ convs: [Conversation]) -> [(ConversationGroup,
 private struct ConversationRow: View {
     let conversation: Conversation
     let isSelected: Bool
+    var onDelete: () -> Void
+
+    @State private var isHovered = false
+    @State private var showDeleteConfirm = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(conversation.title.isEmpty ? "New conversation" : conversation.title)
-                .font(.callout)
-                .lineLimit(1)
-                .foregroundStyle(isSelected ? .primary : .primary)
-            Text(relativeTime(conversation.updatedAt))
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+        HStack(spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(conversation.title.isEmpty ? "New conversation" : conversation.title)
+                    .font(.callout)
+                    .lineLimit(1)
+                Text(relativeTime(conversation.updatedAt))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if isHovered {
+                Button {
+                    showDeleteConfirm = true
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Delete conversation")
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -180,10 +200,15 @@ private struct ConversationRow: View {
         .background(
             isSelected
                 ? Color.accentColor.opacity(0.15)
-                : Color.clear,
+                : isHovered ? Color.primary.opacity(0.04) : Color.clear,
             in: RoundedRectangle(cornerRadius: 6)
         )
         .contentShape(RoundedRectangle(cornerRadius: 6))
+        .onHover { isHovered = $0 }
+        .confirmationDialog("Delete this conversation?", isPresented: $showDeleteConfirm) {
+            Button("Delete", role: .destructive) { onDelete() }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 
     private func relativeTime(_ date: Date) -> String {
@@ -202,6 +227,7 @@ private struct SidebarView: View {
     let conversations: [Conversation]
     var onSelect: (Conversation) -> Void
     var onNew: () -> Void
+    var onDelete: (UUID) -> Void
 
     @FocusState private var searchFocused: Bool
 
@@ -262,7 +288,8 @@ private struct SidebarView: View {
                             ForEach(items) { conv in
                                 ConversationRow(
                                     conversation: conv,
-                                    isSelected: vm.activeConversation?.id == conv.id
+                                    isSelected: vm.activeConversation?.id == conv.id,
+                                    onDelete: { onDelete(conv.id) }
                                 )
                                 .padding(.horizontal, 6)
                                 .onTapGesture { onSelect(conv) }
@@ -318,6 +345,9 @@ private struct TurnView: View {
     let errorMessage: String?
     let isFirst: Bool
 
+    @State private var isHovered = false
+    @State private var isCopied = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             // User query bubble
@@ -345,10 +375,35 @@ private struct TurnView: View {
                     .foregroundStyle(.red)
                     .font(.callout)
             } else if !turn.response.isEmpty {
-                MarkdownView(text: turn.response)
-                    .textSelection(.enabled)
+                ZStack(alignment: .topTrailing) {
+                    MarkdownView(text: turn.response)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if isHovered {
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(turn.response, forType: .string)
+                            isCopied = true
+                            Task {
+                                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                                isCopied = false
+                            }
+                        } label: {
+                            Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
+                                .font(.caption)
+                                .foregroundStyle(isCopied ? .green : .secondary)
+                                .frame(width: 26, height: 26)
+                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 5))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Copy response")
+                        .offset(x: 4, y: -4)
+                    }
+                }
             }
         }
+        .onHover { isHovered = $0 }
     }
 }
 
@@ -532,7 +587,13 @@ struct CommandPanelView: View {
                 vm: vm,
                 conversations: conversations,
                 onSelect: onSelectConversation,
-                onNew: onNewConversation
+                onNew: onNewConversation,
+                onDelete: { id in
+                    ConversationStore.shared.delete(id)
+                    if vm.activeConversation?.id == id {
+                        vm.startNewConversation(profileId: ProfilesStore.shared.activeProfile.id)
+                    }
+                }
             )
             .frame(width: sidebarWidth)
             .background(Color.primary.opacity(0.03))

@@ -5,7 +5,6 @@ import AppKit
 
 private enum SettingsTab: String, CaseIterable {
     case profiles      = "Profiles"
-    case provider      = "Provider"
     case apiKeys       = "API Keys"
     case preferences   = "Preferences"
     case hotkeys       = "Hotkeys"
@@ -15,7 +14,6 @@ private enum SettingsTab: String, CaseIterable {
     var icon: String {
         switch self {
         case .profiles:      return "person.2.fill"
-        case .provider:      return "sparkle"
         case .apiKeys:       return "key.fill"
         case .preferences:   return "slider.horizontal.3"
         case .hotkeys:       return "keyboard"
@@ -74,7 +72,6 @@ struct SettingsView: View {
     @State private var editingKeyFor: Provider? = nil
     @State private var draftKey: String = ""
     @State private var showKey: Bool = false
-    @State private var draftModel: String = ""
     @State private var axGranted: Bool = AXIsProcessTrusted()
 
     var body: some View {
@@ -83,17 +80,8 @@ struct SettingsView: View {
             Divider()
             contentPane
         }
-        .frame(minWidth: 760, maxWidth: .infinity, minHeight: 480, maxHeight: .infinity)
-        .background(.ultraThickMaterial)
-        .onAppear {
-            draftModel = prefs.currentModel(for: prefs.providerChoice)
-            if prefs.providerChoice == .ollama {
-                Task { @MainActor in
-                    await prefs.refreshOllamaModels()
-                    draftModel = prefs.currentModel(for: .ollama)
-                }
-            }
-        }
+        .frame(minWidth: 720, maxWidth: .infinity, minHeight: 480, maxHeight: .infinity)
+        .background(Color(NSColor.windowBackgroundColor))
     }
 
     // MARK: - Sidebar
@@ -143,7 +131,6 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 24) {
                 switch selectedTab {
                 case .profiles:      ProfilesTabView()
-                case .provider:      activeProviderSection
                 case .apiKeys:       allKeysSection
                 case .preferences:   globalSettingsSection
                 case .hotkeys:       hotkeysSection
@@ -155,120 +142,6 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    // MARK: - Provider tab
-
-    private var activeProviderSection: some View {
-        SettingsSection(title: "Active Provider") {
-            HStack(spacing: 8) {
-                Picker("", selection: Binding(
-                    get: { prefs.providerChoice },
-                    set: { p in
-                        prefs.setProvider(p)
-                        draftModel = prefs.currentModel(for: p)
-                        editingKeyFor = nil
-                        if p == .ollama {
-                            Task { @MainActor in
-                                await prefs.refreshOllamaModels()
-                                draftModel = prefs.currentModel(for: .ollama)
-                            }
-                        }
-                    }
-                )) {
-                    ForEach(Provider.allCases, id: \.rawValue) { p in
-                        Text(p.displayName).tag(p)
-                    }
-                }
-                .pickerStyle(.menu)
-                .labelsHidden()
-                .frame(width: 130)
-
-                if prefs.providerChoice == .ollama {
-                    ollamaModelPicker
-                } else {
-                    ModelComboBox(
-                        text: $draftModel,
-                        suggestions: prefs.providerChoice.suggestedModels,
-                        placeholder: prefs.providerChoice.defaultModel
-                    )
-                    .frame(height: 22)
-                    .onChange(of: draftModel) { _, new in
-                        prefs.setModel(new, for: prefs.providerChoice)
-                    }
-                    .onChange(of: prefs.providerChoice) { _, new in
-                        draftModel = prefs.currentModel(for: new)
-                    }
-                }
-
-                Button {
-                    draftModel = prefs.providerChoice.defaultModel
-                    prefs.setModel("", for: prefs.providerChoice)
-                } label: {
-                    Image(systemName: "arrow.counterclockwise")
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
-                .help("Reset to default model")
-            }
-
-            if prefs.providerChoice.requiresKey {
-                activeKeyRow
-            } else {
-                Label("No API key needed — Ollama runs locally.", systemImage: "laptopcomputer")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var activeKeyRow: some View {
-        let isEditing = editingKeyFor == prefs.providerChoice
-        let hasKey = prefs.hasKey(for: prefs.providerChoice)
-
-        if isEditing {
-            keyEditorView(for: prefs.providerChoice)
-        } else if hasKey {
-            HStack(spacing: 10) {
-                Label("Key saved", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                    .font(.callout)
-                Spacer()
-                Button("Change") {
-                    draftKey = ""
-                    showKey = false
-                    editingKeyFor = prefs.providerChoice
-                }
-                .buttonStyle(.borderless)
-                Button("Remove") { prefs.clearKey(for: prefs.providerChoice) }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(.red)
-            }
-        } else {
-            HStack(spacing: 10) {
-                Label("No key set", systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.orange)
-                    .font(.callout)
-                Spacer()
-                if let url = prefs.providerChoice.signupURL {
-                    Link("Get key ↗", destination: URL(string: url)!)
-                        .font(.callout)
-                        .foregroundStyle(Color.accentColor)
-                        .underline()
-                }
-                Button("Add Key") {
-                    draftKey = ""
-                    showKey = false
-                    editingKeyFor = prefs.providerChoice
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-
-        Text("~/.config/blind-spot/keys/\(prefs.providerChoice.rawValue)")
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
     }
 
     // MARK: - API Keys tab
@@ -306,10 +179,6 @@ struct SettingsView: View {
                                 draftKey = ""
                                 showKey = false
                                 editingKeyFor = provider
-                                if provider != prefs.providerChoice {
-                                    prefs.setProvider(provider)
-                                    draftModel = prefs.currentModel(for: provider)
-                                }
                             }
                             .buttonStyle(.borderless)
                             .font(.caption)
@@ -328,10 +197,6 @@ struct SettingsView: View {
                                 draftKey = ""
                                 showKey = false
                                 editingKeyFor = provider
-                                if provider != prefs.providerChoice {
-                                    prefs.setProvider(provider)
-                                    draftModel = prefs.currentModel(for: provider)
-                                }
                             }
                             .buttonStyle(.borderless)
                             .font(.caption)
@@ -569,39 +434,6 @@ struct SettingsView: View {
         }
     }
 
-    @ViewBuilder
-    private var ollamaModelPicker: some View {
-        if prefs.installedOllamaModels.isEmpty {
-            TextField(prefs.providerChoice.defaultModel, text: $draftModel)
-                .textFieldStyle(.roundedBorder)
-                .font(.system(.body, design: .monospaced))
-                .onChange(of: draftModel) { _, new in prefs.setModel(new, for: .ollama) }
-        } else {
-            Picker("", selection: $draftModel) {
-                ForEach(prefs.installedOllamaModels, id: \.self) { name in
-                    Text(name).tag(name)
-                }
-                if !prefs.installedOllamaModels.contains(draftModel) && !draftModel.isEmpty {
-                    Text("\(draftModel) (custom)").tag(draftModel)
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .onChange(of: draftModel) { _, new in prefs.setModel(new, for: .ollama) }
-        }
-
-        Button {
-            Task { @MainActor in
-                await prefs.refreshOllamaModels()
-                draftModel = prefs.currentModel(for: .ollama)
-            }
-        } label: {
-            Image(systemName: "arrow.clockwise")
-        }
-        .buttonStyle(.borderless)
-        .foregroundStyle(.secondary)
-        .help("Refresh installed Ollama models")
-    }
 }
 
 // MARK: - Native text editor (NSTextView wrapper)
