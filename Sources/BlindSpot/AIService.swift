@@ -38,6 +38,16 @@ enum AIService {
                 provider: .grok,
                 endpoint: "https://api.x.ai/v1/chat/completions"
             )
+        case .openrouter:
+            return try await queryOpenAICompatible(
+                messages,
+                provider: .openrouter,
+                endpoint: "https://openrouter.ai/api/v1/chat/completions",
+                extraHeaders: [
+                    "HTTP-Referer": "https://github.com/unveroleone/blind-spot",
+                    "X-Title": "BlindSpot",
+                ]
+            )
         case .anthropic: return try await queryAnthropic(messages)
         case .gemini:    return try await queryGemini(messages)
         case .ollama:    return try await queryOllama(messages)
@@ -49,7 +59,8 @@ enum AIService {
     private static func queryOpenAICompatible(
         _ messages: [ConversationMessage],
         provider: Provider,
-        endpoint: String
+        endpoint: String,
+        extraHeaders: [String: String] = [:]
     ) async throws -> AsyncThrowingStream<String, Swift.Error> {
         let key = Config.apiKey
         guard !key.isEmpty else { throw Error.missingAPIKey(provider) }
@@ -60,6 +71,9 @@ enum AIService {
         req.httpMethod = "POST"
         req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        for (header, value) in extraHeaders {
+            req.setValue(value, forHTTPHeaderField: header)
+        }
         req.httpBody = try JSONSerialization.data(withJSONObject: [
             "model": Config.model,
             "max_tokens": Config.maxTokens,

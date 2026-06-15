@@ -16,7 +16,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     func show() {
         if window == nil {
             let w = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 520, height: 460),
+                contentRect: NSRect(x: 0, y: 0, width: 520, height: 580),
                 styleMask: [.titled, .closable, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
@@ -29,7 +29,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             w.delegate = self
             window = w
         }
-        NSApp.activate(ignoringOtherApps: true)
+        window?.orderFrontRegardless()
         window?.makeKeyAndOrderFront(nil)
     }
 
@@ -72,6 +72,8 @@ struct SettingsView: View {
                     Divider()
                     modelSection
                     Divider()
+                    maxTokensSection
+                    Divider()
                     accessibilitySection
                     Divider()
                     hotkeySection
@@ -103,16 +105,19 @@ struct SettingsView: View {
 
     private var providerSection: some View {
         SettingsSection(title: "AI Provider") {
-            Picker("Provider", selection: Binding(
-                get: { prefs.providerChoice },
-                set: { prefs.setProvider($0); draftModel = prefs.currentModel(for: $0) }
-            )) {
-                ForEach(Provider.allCases, id: \.rawValue) { p in
-                    Text(p.displayName).tag(p)
+            HStack {
+                Picker("Provider", selection: Binding(
+                    get: { prefs.providerChoice },
+                    set: { prefs.setProvider($0); draftModel = prefs.currentModel(for: $0) }
+                )) {
+                    ForEach(Provider.allCases, id: \.rawValue) { p in
+                        Text(p.displayName).tag(p)
+                    }
                 }
+                .pickerStyle(.menu)
+                .frame(maxWidth: 200)
+                Spacer()
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
 
             if !prefs.providerChoice.requiresKey {
                 Label("No API key needed — Ollama runs locally.", systemImage: "laptopcomputer")
@@ -179,6 +184,12 @@ struct SettingsView: View {
                         .foregroundStyle(.orange)
                         .font(.callout)
                     Spacer()
+                    if let url = prefs.providerChoice.signupURL {
+                        Link("Get key →", destination: URL(string: url)!)
+                            .font(.callout)
+                            .buttonStyle(.borderless)
+                            .foregroundStyle(.secondary)
+                    }
                     Button("Add Key") {
                         draftKey = ""
                         showKey = false
@@ -200,6 +211,23 @@ struct SettingsView: View {
                 TextField(prefs.providerChoice.defaultModel, text: $draftModel)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
+
+                if !prefs.providerChoice.suggestedModels.isEmpty {
+                    Menu {
+                        ForEach(prefs.providerChoice.suggestedModels, id: \.self) { model in
+                            Button(model) {
+                                draftModel = model
+                                prefs.setModel(model, for: prefs.providerChoice)
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "chevron.down.circle")
+                            .foregroundStyle(.secondary)
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                    .help("Pick a suggested model")
+                }
 
                 Button("Reset") {
                     draftModel = prefs.providerChoice.defaultModel
@@ -228,6 +256,42 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private var maxTokensSection: some View {
+        SettingsSection(title: "Max Tokens") {
+            HStack(spacing: 8) {
+                TextField("4096", value: Binding(
+                    get: { prefs.maxTokens },
+                    set: { prefs.setMaxTokens($0) }
+                ), formatter: {
+                    let f = NumberFormatter()
+                    f.numberStyle = .decimal
+                    f.minimum = 256
+                    f.maximum = 8192
+                    return f
+                }())
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 72)
+
+                Stepper("", value: Binding(
+                    get: { prefs.maxTokens },
+                    set: { prefs.setMaxTokens($0) }
+                ), in: 256...8192, step: 256)
+                .labelsHidden()
+
+                Spacer()
+
+                if prefs.maxTokens != 4096 {
+                    Button("Reset") { prefs.setMaxTokens(4096) }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Text("Maximum tokens per response. Increase if answers get cut off.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
