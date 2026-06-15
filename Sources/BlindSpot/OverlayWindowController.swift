@@ -93,6 +93,10 @@ class OverlayWindowController: NSObject, NSWindowDelegate {
                 let completedResponse = fullResponse
                 await MainActor.run {
                     vm.isLoading = false
+                    guard !completedResponse.isEmpty else {
+                        vm.errorMessage = "No response received — the model may have hit its token limit. Try increasing Max Tokens in Settings."
+                        return
+                    }
                     conversationMessages.append(
                         ConversationMessage(role: .assistant, content: completedResponse)
                     )

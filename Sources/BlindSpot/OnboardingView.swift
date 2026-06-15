@@ -31,7 +31,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
             w.delegate = self
             window = w
         }
-        NSApp.activate(ignoringOtherApps: true)
+        window?.orderFrontRegardless()
         window?.makeKeyAndOrderFront(nil)
     }
 
@@ -292,8 +292,10 @@ private struct APIKeyStep: View {
                 }
                 .foregroundStyle(.secondary)
 
-                Link("Get a key at \(provider.keyURL) →", destination: URL(string: "https://\(provider.keyURL)")!)
-                    .font(.caption)
+                if let url = provider.signupURL {
+                    Link("Get a key →", destination: URL(string: url)!)
+                        .font(.caption)
+                }
             }
             .padding(.horizontal, 32)
 
@@ -470,34 +472,25 @@ private extension Step {
 private extension Provider {
     var icon: String {
         switch self {
-        case .openai:    return "sparkle"
-        case .anthropic: return "brain.head.profile"
-        case .gemini:    return "sparkles"
-        case .deepseek:  return "cpu"
-        case .grok:      return "bolt"
-        case .ollama:    return "laptopcomputer"
+        case .openai:     return "sparkle"
+        case .anthropic:  return "brain.head.profile"
+        case .gemini:     return "sparkles"
+        case .deepseek:   return "cpu"
+        case .grok:       return "bolt"
+        case .openrouter: return "arrow.triangle.branch"
+        case .ollama:     return "laptopcomputer"
         }
     }
 
     var cardDescription: String {
         switch self {
-        case .openai:    return "GPT-4o\nBest all-round\nNeeds API key"
-        case .anthropic: return "Claude\nGreat for reasoning\nNeeds API key"
-        case .gemini:    return "Gemini 2.5\nFast & cheap\nNeeds API key"
-        case .deepseek:  return "DeepSeek\nVery cheap\nNeeds API key"
-        case .grok:      return "Grok 3\nxAI model\nNeeds API key"
-        case .ollama:    return "Local models\nFree & private\nNo API key"
-        }
-    }
-
-    var keyURL: String {
-        switch self {
-        case .openai:    return "platform.openai.com/api-keys"
-        case .anthropic: return "console.anthropic.com/settings/keys"
-        case .gemini:    return "aistudio.google.com/app/apikey"
-        case .deepseek:  return "platform.deepseek.com/api_keys"
-        case .grok:      return "console.x.ai"
-        case .ollama:    return "ollama.com"
+        case .openai:     return "GPT-4o\nBest all-round\nNeeds API key"
+        case .anthropic:  return "Claude\nGreat for reasoning\nNeeds API key"
+        case .gemini:     return "Gemini 2.5\nFast & cheap\nNeeds API key"
+        case .deepseek:   return "DeepSeek\nVery cheap\nNeeds API key"
+        case .grok:       return "Grok 3\nxAI model\nNeeds API key"
+        case .openrouter: return "100+ models\nOne API key\nNeeds API key"
+        case .ollama:     return "Local models\nFree & private\nNo API key"
         }
     }
 }

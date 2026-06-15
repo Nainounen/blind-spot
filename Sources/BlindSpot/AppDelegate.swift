@@ -10,12 +10,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var onboardingController = OnboardingWindowController()
     private var settingsController = SettingsWindowController()
     private var cancellables = Set<AnyCancellable>()
+    // Zero-size hidden window kept alive for the entire app lifetime. Prevents
+    // AppKit from reaching "no windows" state, which can trigger termination in
+    // some macOS activation-policy edge cases even with the delegate override.
+    private var ghostWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Provide Edit-menu keyboard shortcuts (Cmd+V/C/X/A/Z) for all text
         // fields and text views. The menu bar stays hidden in .accessory policy
         // but the key equivalents are registered and work globally.
         NSApp.mainMenu = buildEditMenu()
+
+        // Keep the process alive regardless of which visible windows come and go.
+        let ghost = NSWindow(contentRect: .zero, styleMask: [], backing: .buffered, defer: true)
+        ghost.isReleasedWhenClosed = false
+        ghostWindow = ghost
 
         // Menu bar icon — always present
         menuBarController = MenuBarController(
