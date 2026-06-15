@@ -373,16 +373,15 @@ struct SettingsView: View {
                 Text("System Prompt")
                     .font(.callout.weight(.medium))
 
-                TextEditor(text: $draftSystemPrompt)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(minHeight: 90, maxHeight: 180)
-                    .scrollContentBackground(.hidden)
-                    .background(Color.primary.opacity(0.04))
+                NativeTextEditor(text: $draftSystemPrompt)
+                    .frame(minHeight: 100, maxHeight: 180)
+                    .padding(8)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
-                            .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
+                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
 
                 HStack(alignment: .center, spacing: 8) {
                     Text("Sent to every request as the `system` message. Applied to all providers.")
@@ -593,6 +592,49 @@ struct SettingsView: View {
         .buttonStyle(.borderless)
         .foregroundStyle(.secondary)
         .help("Refresh installed Ollama models")
+    }
+}
+
+// MARK: - Native text editor (NSTextView wrapper)
+// SwiftUI's TextEditor always renders a white NSTextView background on macOS
+// regardless of scrollContentBackground(.hidden) — wrapping NSTextView directly
+// lets us set drawsBackground = false on both the scroll view and text view.
+
+private struct NativeTextEditor: NSViewRepresentable {
+    @Binding var text: String
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSTextView.scrollableTextView()
+        let textView = scrollView.documentView as! NSTextView
+        textView.delegate = context.coordinator
+        textView.font = .systemFont(ofSize: NSFont.systemFontSize)
+        textView.isRichText = false
+        textView.isEditable = true
+        textView.isSelectable = true
+        textView.allowsUndo = true
+        textView.textContainerInset = .zero
+        textView.drawsBackground = false
+        textView.string = text
+        scrollView.drawsBackground = false
+        scrollView.borderType = .noBorder
+        return scrollView
+    }
+
+    func updateNSView(_ nsView: NSScrollView, context: Context) {
+        guard let textView = nsView.documentView as? NSTextView else { return }
+        if textView.string != text { textView.string = text }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        @Binding var text: String
+        init(text: Binding<String>) { _text = text }
+
+        func textDidChange(_ notification: Notification) {
+            guard let tv = notification.object as? NSTextView else { return }
+            text = tv.string
+        }
     }
 }
 
