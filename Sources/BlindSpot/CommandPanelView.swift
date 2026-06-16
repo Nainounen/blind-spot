@@ -152,18 +152,26 @@ private func groupConversations(_ convs: [Conversation]) -> [(ConversationGroup,
         }
     }
 
-    return [
-        (.today, today),
-        (.yesterday, yesterday),
-        (.thisWeek, thisWeek),
-        (.earlier, earlier),
-    ].filter { !$1.isEmpty }
+    return [(.today, today), (.yesterday, yesterday), (.thisWeek, thisWeek), (.earlier, earlier)]
+        .filter { !$1.isEmpty }
+}
+
+private func relativeTime(_ date: Date) -> String {
+    let diff = Date().timeIntervalSince(date)
+    if diff < 60 { return "Just now" }
+    if diff < 3600 { return "\(Int(diff / 60))m ago" }
+    if diff < 86400 { return "\(Int(diff / 3600))h ago" }
+    let f = DateFormatter()
+    f.dateFormat = "MMM d"
+    return f.string(from: date)
 }
 
 private struct ConversationRow: View {
     let conversation: Conversation
     let isSelected: Bool
+    let folders: [Folder]
     var onDelete: () -> Void
+    var onSelect: () -> Void
 
     @State private var isHovered = false
     @State private var showDeleteConfirm = false
@@ -181,9 +189,7 @@ private struct ConversationRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if isHovered {
-                Button {
-                    showDeleteConfirm = true
-                } label: {
+                Button { showDeleteConfirm = true } label: {
                     Image(systemName: "trash")
                         .font(.caption)
                         .foregroundStyle(.red)
@@ -205,31 +211,127 @@ private struct ConversationRow: View {
         )
         .contentShape(RoundedRectangle(cornerRadius: 6))
         .onHover { isHovered = $0 }
+        .onTapGesture { onSelect() }
+        .contextMenu {
+            Menu("Export") {
+                Button("Export as Markdown") {
+                    exportConversation(conversation, format: .markdown)
+                }
+                Button("Export as JSON") {
+                    exportConversation(conversation, format: .json)
+                }
+            }
+
+            if !folders.isEmpty || conversation.folderId != nil {
+                Divider()
+                Menu("Move to Folder") {
+                    if conversation.folderId != nil {
+                        Button("Remove from Folder") {
+                            ConversationStore.shared.moveConversation(conversation.id, toFolder: nil)
+                        }
+                        Divider()
+                    }
+                    ForEach(folders.filter { $0.id != conversation.folderId }) { folder in
+                        Button(folder.name) {
+                            ConversationStore.shared.moveConversation(conversation.id, toFolder: folder.id)
+                        }
+                    }
+                }
+            }
+
+            Divider()
+            Button("Delete", role: .destructive) { showDeleteConfirm = true }
+        }
         .confirmationDialog("Delete this conversation?", isPresented: $showDeleteConfirm) {
             Button("Delete", role: .destructive) { onDelete() }
             Button("Cancel", role: .cancel) {}
         }
     }
+}
 
-    private func relativeTime(_ date: Date) -> String {
-        let diff = Date().timeIntervalSince(date)
-        if diff < 60 { return "Just now" }
-        if diff < 3600 { return "\(Int(diff / 60))m ago" }
-        if diff < 86400 { return "\(Int(diff / 3600))h ago" }
-        let f = DateFormatter()
-        f.dateFormat = "MMM d"
-        return f.string(from: date)
+private struct FolderSection: View {
+    let folder: Folder
+    let conversations: [Conversation]
+    let allFolders: [Folder]
+    let activeConvId: UUID?
+    var onSelect: (Conversation) -> Void
+    var onDelete: (UUID) -> Void
+
+    @State private var isExpanded = true
+    @State private var isRenaming = false
+    @State private var renameDraft = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 5) {
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 10)
+                Image(systemName: "folder.fill")
+                    .font(.caption2)
+                    .foregroundStyle(Color.accentColor.opacity(0.7))
+                Text(folder.name)
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(conversations.count)")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.12)) { isExpanded.toggle() }
+            }
+            .contextMenu {
+                Button("Rename Folder") { renameDraft = folder.name; isRenaming = true }
+                Divider()
+                Button("Delete Folder", role: .destructive) {
+                    ConversationStore.shared.deleteFolder(folder.id)
+                }
+            }
+
+            if isExpanded {
+                ForEach(conversations) { conv in
+                    ConversationRow(
+                        conversation: conv,
+                        isSelected: activeConvId == conv.id,
+                        folders: allFolders,
+                        onDelete: { onDelete(conv.id) },
+                        onSelect: { onSelect(conv) }
+                    )
+                    .padding(.horizontal, 6)
+                    .padding(.leading, 6)
+                }
+            }
+        }
+        .alert("Rename Folder", isPresented: $isRenaming) {
+            TextField("Folder name", text: $renameDraft)
+            Button("Rename") {
+                if !renameDraft.isEmpty {
+                    ConversationStore.shared.renameFolder(folder.id, to: renameDraft)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 }
 
 private struct SidebarView: View {
     @Bindable var vm: CommandPanelViewModel
     let conversations: [Conversation]
+    let folders: [Folder]
     var onSelect: (Conversation) -> Void
     var onNew: () -> Void
     var onDelete: (UUID) -> Void
 
     @FocusState private var searchFocused: Bool
+    @State private var showNewFolderAlert = false
+    @State private var newFolderName = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -259,80 +361,148 @@ private struct SidebarView: View {
             .padding(.bottom, 6)
 
             // Conversation list
-            if filtered.isEmpty {
-                Spacer()
-                if conversations.isEmpty {
-                    Text("No conversations yet")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding()
-                } else {
-                    Text("No results")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            if conversations.isEmpty && folders.isEmpty {
+                emptyState
+            } else if !vm.sidebarSearch.isEmpty {
+                searchResults
+            } else {
+                mainList
+            }
+
+            Divider()
+
+            // Bottom toolbar
+            HStack(spacing: 0) {
+                Button(action: onNew) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "plus").font(.caption.bold())
+                        Text("New").font(.callout)
+                        Spacer()
+                        Text("⌘N").font(.caption2).foregroundStyle(.tertiary)
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .contentShape(Rectangle())
                 }
-                Spacer()
+                .buttonStyle(.plain)
+
+                Button {
+                    newFolderName = ""
+                    showNewFolderAlert = true
+                } label: {
+                    Image(systemName: "folder.badge.plus")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("New Folder")
+                .padding(.trailing, 4)
+            }
+        }
+        .onChange(of: vm.focusSidebarSearch) { _, newVal in
+            if newVal { searchFocused = true; vm.focusSidebarSearch = false }
+        }
+        .alert("New Folder", isPresented: $showNewFolderAlert) {
+            TextField("Folder name", text: $newFolderName)
+            Button("Create") {
+                if !newFolderName.isEmpty {
+                    ConversationStore.shared.createFolder(name: newFolderName)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    // MARK: - List sections
+
+    private var emptyState: some View {
+        VStack {
+            Spacer()
+            Text("No conversations yet")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding()
+            Spacer()
+        }
+    }
+
+    private var searchResults: some View {
+        let q = vm.sidebarSearch.lowercased()
+        let results = conversations.filter { $0.title.lowercased().contains(q) }
+        return Group {
+            if results.isEmpty {
+                VStack { Spacer(); Text("No results").font(.caption).foregroundStyle(.secondary); Spacer() }
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0, pinnedViews: []) {
-                        ForEach(groupConversations(filtered), id: \.0.rawValue) { group, items in
-                            Text(group.rawValue)
-                                .font(.caption2)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 12)
-                                .padding(.top, 10)
-                                .padding(.bottom, 2)
-
-                            ForEach(items) { conv in
-                                ConversationRow(
-                                    conversation: conv,
-                                    isSelected: vm.activeConversation?.id == conv.id,
-                                    onDelete: { onDelete(conv.id) }
-                                )
-                                .padding(.horizontal, 6)
-                                .onTapGesture { onSelect(conv) }
-                            }
+                    LazyVStack(spacing: 0) {
+                        ForEach(results) { conv in
+                            ConversationRow(
+                                conversation: conv,
+                                isSelected: vm.activeConversation?.id == conv.id,
+                                folders: folders,
+                                onDelete: { onDelete(conv.id) },
+                                onSelect: { onSelect(conv) }
+                            )
+                            .padding(.horizontal, 6)
                         }
                     }
                     .padding(.bottom, 8)
                 }
             }
-
-            Divider()
-
-            // New conversation button
-            Button(action: onNew) {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus")
-                        .font(.caption.bold())
-                    Text("New")
-                        .font(.callout)
-                    Spacer()
-                    Text("⌘N")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-        .onChange(of: vm.focusSidebarSearch) { _, newVal in
-            if newVal {
-                searchFocused = true
-                vm.focusSidebarSearch = false
-            }
         }
     }
 
-    private var filtered: [Conversation] {
-        guard !vm.sidebarSearch.isEmpty else { return conversations }
-        let q = vm.sidebarSearch.lowercased()
-        return conversations.filter { $0.title.lowercased().contains(q) }
+    private var mainList: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                // Folders
+                if !folders.isEmpty {
+                    ForEach(folders) { folder in
+                        FolderSection(
+                            folder: folder,
+                            conversations: ConversationStore.shared.conversations(inFolder: folder.id),
+                            allFolders: folders,
+                            activeConvId: vm.activeConversation?.id,
+                            onSelect: onSelect,
+                            onDelete: onDelete
+                        )
+                    }
+
+                    if !ConversationStore.shared.unfolderedConversations.isEmpty {
+                        Divider()
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+                    }
+                }
+
+                // Unfoldered conversations grouped by date
+                ForEach(groupConversations(ConversationStore.shared.unfolderedConversations), id: \.0.rawValue) { group, items in
+                    Text(group.rawValue)
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 10)
+                        .padding(.bottom, 2)
+
+                    ForEach(items) { conv in
+                        ConversationRow(
+                            conversation: conv,
+                            isSelected: vm.activeConversation?.id == conv.id,
+                            folders: folders,
+                            onDelete: { onDelete(conv.id) },
+                            onSelect: { onSelect(conv) }
+                        )
+                        .padding(.horizontal, 6)
+                    }
+                }
+            }
+            .padding(.bottom, 8)
+        }
     }
 }
 
@@ -584,6 +754,7 @@ struct CommandPanelView: View {
     var onNewConversation: () -> Void
 
     @State private var conversations: [Conversation] = []
+    @State private var folders: [Folder] = []
 
     private let sidebarWidth: CGFloat = 200
 
@@ -593,6 +764,7 @@ struct CommandPanelView: View {
             SidebarView(
                 vm: vm,
                 conversations: conversations,
+                folders: folders,
                 onSelect: onSelectConversation,
                 onNew: onNewConversation,
                 onDelete: { id in
@@ -625,13 +797,14 @@ struct CommandPanelView: View {
             RoundedRectangle(cornerRadius: 16)
                 .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
         )
-        .onAppear { loadConversations() }
+        .onAppear { reload() }
         .onReceive(NotificationCenter.default.publisher(for: .conversationsDidUpdate)) { _ in
-            loadConversations()
+            reload()
         }
     }
 
-    private func loadConversations() {
+    private func reload() {
         conversations = ConversationStore.shared.conversations
+        folders = ConversationStore.shared.folders
     }
 }

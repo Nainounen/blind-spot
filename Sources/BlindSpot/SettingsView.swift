@@ -86,29 +86,33 @@ struct SettingsView: View {
     // MARK: - Sidebar
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            // Space for transparent title bar / traffic lights
-            Spacer().frame(height: 48)
+        VStack(alignment: .leading, spacing: 0) {
+            // Traffic-light clearance
+            Spacer().frame(height: 44)
 
             // App identity
-            HStack(spacing: 8) {
+            HStack(spacing: 7) {
                 Image(systemName: "sparkle")
-                    .font(.callout)
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.purple)
                 Text("BlindSpot")
                     .font(.callout.weight(.semibold))
-                    .foregroundStyle(.primary)
             }
             .padding(.horizontal, 12)
-            .padding(.bottom, 12)
+            .padding(.bottom, 14)
 
-            ForEach(SettingsTab.allCases, id: \.self) { tab in
-                sidebarButton(tab)
+            // Nav items
+            VStack(spacing: 1) {
+                ForEach(SettingsTab.allCases, id: \.self) { tab in
+                    sidebarButton(tab)
+                }
             }
+
             Spacer()
         }
         .padding(.horizontal, 8)
-        .frame(width: 160)
+        .padding(.bottom, 8)
+        .frame(width: 176)
         .background(Color.primary.opacity(0.03))
     }
 
@@ -116,10 +120,11 @@ struct SettingsView: View {
         Button { selectedTab = tab } label: {
             HStack(spacing: 8) {
                 Image(systemName: tab.icon)
-                    .font(.caption)
-                    .frame(width: 14)
+                    .font(.system(size: 12))
+                    .frame(width: 16)
                     .foregroundStyle(selectedTab == tab ? Color.accentColor : .secondary)
                 Text(tab.rawValue)
+                    .font(.callout)
                 Spacer()
                 if tab == .accessibility && !axGranted {
                     Circle().fill(.orange).frame(width: 5, height: 5)
@@ -135,32 +140,38 @@ struct SettingsView: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(selectedTab == tab ? .primary : .secondary)
-        .font(.callout)
     }
 
     // MARK: - Content pane
 
     @ViewBuilder
     private var contentPane: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // Space for title bar
+        if selectedTab == .profiles {
+            // Profiles tab needs to fill the full height — no outer scroll
+            VStack(spacing: 0) {
                 Spacer().frame(height: 28)
-
-                switch selectedTab {
-                case .profiles:      ProfilesTabView()
-                case .apiKeys:       allKeysSection
-                case .preferences:   globalSettingsSection
-                case .hotkeys:       hotkeysSection
-                case .accessibility: accessibilitySection
-                case .about:         versionSection
-                }
+                ProfilesTabView()
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 24)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Spacer().frame(height: 28)
+                    switch selectedTab {
+                    case .profiles:      EmptyView()
+                    case .apiKeys:       allKeysSection
+                    case .preferences:   globalSettingsSection
+                    case .hotkeys:       hotkeysSection
+                    case .accessibility: accessibilitySection
+                    case .about:         versionSection
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - API Keys tab
@@ -455,49 +466,6 @@ struct SettingsView: View {
 
 }
 
-// MARK: - Native text editor (NSTextView wrapper)
-// SwiftUI's TextEditor always renders a white NSTextView background on macOS
-// regardless of scrollContentBackground(.hidden) — wrapping NSTextView directly
-// lets us set drawsBackground = false on both the scroll view and text view.
-
-private struct NativeTextEditor: NSViewRepresentable {
-    @Binding var text: String
-
-    func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSTextView.scrollableTextView()
-        let textView = scrollView.documentView as! NSTextView
-        textView.delegate = context.coordinator
-        textView.font = .systemFont(ofSize: NSFont.systemFontSize)
-        textView.isRichText = false
-        textView.isEditable = true
-        textView.isSelectable = true
-        textView.allowsUndo = true
-        textView.textContainerInset = .zero
-        textView.drawsBackground = false
-        textView.string = text
-        scrollView.drawsBackground = false
-        scrollView.borderType = .noBorder
-        return scrollView
-    }
-
-    func updateNSView(_ nsView: NSScrollView, context: Context) {
-        guard let textView = nsView.documentView as? NSTextView else { return }
-        if textView.string != text { textView.string = text }
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
-
-    final class Coordinator: NSObject, NSTextViewDelegate {
-        @Binding var text: String
-        init(text: Binding<String>) { _text = text }
-
-        func textDidChange(_ notification: Notification) {
-            guard let tv = notification.object as? NSTextView else { return }
-            text = tv.string
-        }
-    }
-}
-
 // MARK: - NSComboBox wrapper
 
 private struct ModelComboBox: NSViewRepresentable {
@@ -765,7 +733,7 @@ private struct ProfileEditorView: View {
                 // System Prompt
                 VStack(alignment: .leading, spacing: 5) {
                     fieldLabel("System Prompt")
-                    NativeTextEditor(text: $draft.systemPrompt)
+                    PasteableTextEditor(text: $draft.systemPrompt)
                         .frame(height: 90)
                         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
                         .overlay(
