@@ -603,6 +603,7 @@ private struct TurnView: View {
 private struct ConversationArea: View {
     @Bindable var vm: CommandPanelViewModel
     var onFollowUp: (String) -> Void
+    var onCancel: () -> Void
     var onClose: () -> Void
     @FocusState private var inputFocused: Bool
 
@@ -675,16 +676,23 @@ private struct ConversationArea: View {
 
                     if vm.followUpText.isEmpty {
                         Text(vm.turns.isEmpty ? "Ask anything…" : "Ask a follow-up…")
-                            .font(.callout)
+                            .font(.system(size: 13))
                             .foregroundStyle(.tertiary)
-                            .padding(.leading, 5)
-                            .padding(.top, 8)
+                            .padding(.leading, 6)
+                            .padding(.top, 7)
                             .allowsHitTesting(false)
                     }
                 }
 
                 if vm.isLoading {
-                    ProgressView().scaleEffect(0.75).padding(.bottom, 6)
+                    Button(action: onCancel) {
+                        Image(systemName: "stop.circle.fill")
+                            .font(.title3)
+                            .foregroundStyle(Color.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.bottom, 4)
+                    .help("Stop generating (Ctrl+C)")
                 } else {
                     Button(action: submit) {
                         Image(systemName: "arrow.up.circle.fill")
@@ -824,6 +832,7 @@ struct CommandPanelView: View {
     var onFollowUp: (String) -> Void
     var onSelectConversation: (Conversation) -> Void
     var onNewConversation: () -> Void
+    var onCancel: () -> Void
 
     @State private var conversations: [Conversation] = []
     @State private var folders: [Folder] = []
@@ -856,6 +865,7 @@ struct CommandPanelView: View {
                 ConversationArea(
                     vm: vm,
                     onFollowUp: onFollowUp,
+                    onCancel: onCancel,
                     onClose: onClose
                 )
                 Divider()
