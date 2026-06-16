@@ -772,6 +772,7 @@ private struct ProfileEditorView: View {
                             ),
                             in: 256...16384, step: 256
                         )
+                        .tint(Color(nsColor: .controlAccentColor))
                     }
 
                     Divider().opacity(0.4)
@@ -791,6 +792,7 @@ private struct ProfileEditorView: View {
                             ),
                             in: 0.0...2.0, step: 0.1
                         )
+                        .tint(Color(nsColor: .controlAccentColor))
                         Text("Lower = focused · Higher = creative")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
