@@ -1,8 +1,19 @@
 import Foundation
 
+// MARK: - Reasoning effort
+
+enum ReasoningEffort: String, Codable, CaseIterable, Equatable {
+    case low = "low"
+    case medium = "medium"
+    case high = "high"
+    case max = "max"
+
+    var displayName: String { rawValue.capitalized }
+}
+
 // MARK: - Model
 
-struct AIProfile: Codable, Identifiable, Equatable {
+struct AIProfile: Identifiable, Equatable {
     var id: UUID
     var name: String
     var provider: Provider
@@ -11,6 +22,8 @@ struct AIProfile: Codable, Identifiable, Equatable {
     var maxOutputTokens: Int
     var temperature: Double
     var createdAt: Date
+    var thinkingEnabled: Bool
+    var reasoningEffort: ReasoningEffort
 
     init(
         id: UUID = UUID(),
@@ -20,7 +33,9 @@ struct AIProfile: Codable, Identifiable, Equatable {
         systemPrompt: String = "",
         maxOutputTokens: Int = 4096,
         temperature: Double = 1.0,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        thinkingEnabled: Bool = false,
+        reasoningEffort: ReasoningEffort = .medium
     ) {
         self.id = id
         self.name = name
@@ -30,10 +45,44 @@ struct AIProfile: Codable, Identifiable, Equatable {
         self.maxOutputTokens = maxOutputTokens
         self.temperature = temperature
         self.createdAt = createdAt
+        self.thinkingEnabled = thinkingEnabled
+        self.reasoningEffort = reasoningEffort
+    }
+}
+
+extension AIProfile: Codable {
+    enum CodingKeys: String, CodingKey {
+        case id, name, provider, model, systemPrompt, maxOutputTokens, temperature, createdAt
+        case thinkingEnabled, reasoningEffort
     }
 
-    // Synthesized Equatable compares all fields — needed so SwiftUI correctly
-    // detects changes in @State<AIProfile> (e.g. provider or model edits).
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        provider = try c.decode(Provider.self, forKey: .provider)
+        model = try c.decode(String.self, forKey: .model)
+        systemPrompt = try c.decode(String.self, forKey: .systemPrompt)
+        maxOutputTokens = try c.decode(Int.self, forKey: .maxOutputTokens)
+        temperature = try c.decode(Double.self, forKey: .temperature)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        thinkingEnabled = try c.decodeIfPresent(Bool.self, forKey: .thinkingEnabled) ?? false
+        reasoningEffort = try c.decodeIfPresent(ReasoningEffort.self, forKey: .reasoningEffort) ?? .medium
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(provider, forKey: .provider)
+        try c.encode(model, forKey: .model)
+        try c.encode(systemPrompt, forKey: .systemPrompt)
+        try c.encode(maxOutputTokens, forKey: .maxOutputTokens)
+        try c.encode(temperature, forKey: .temperature)
+        try c.encode(createdAt, forKey: .createdAt)
+        try c.encode(thinkingEnabled, forKey: .thinkingEnabled)
+        try c.encode(reasoningEffort, forKey: .reasoningEffort)
+    }
 }
 
 // MARK: - Store

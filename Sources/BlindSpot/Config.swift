@@ -35,6 +35,26 @@ enum Provider: String, CaseIterable, Codable {
 
     var requiresKey: Bool { self != .ollama }
 
+    var supportsThinking: Bool {
+        switch self {
+        case .openai, .anthropic, .deepseek, .grok, .openrouter: return true
+        case .gemini, .ollama: return false
+        }
+    }
+
+    var thinkingDescription: String {
+        switch self {
+        case .openai, .grok, .openrouter:
+            return "Reasoning models (o3, o4-mini, grok-3-mini…) think before answering. Has no effect on non-reasoning models."
+        case .anthropic:
+            return "Claude thinks before answering using adaptive thinking. Temperature still applies."
+        case .deepseek:
+            return "DeepSeek-v4-Pro thinking mode. Only applies to the deepseek-v4-pro model. Temperature is ignored."
+        default:
+            return ""
+        }
+    }
+
     var signupURL: String? {
         switch self {
         case .openai:     return "https://platform.openai.com/api-keys"

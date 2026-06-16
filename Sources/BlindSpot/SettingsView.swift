@@ -30,6 +30,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
 
     func show() {
+        // Switch to .regular BEFORE creating the window so SwiftUI controls
+        // render with the correct system appearance from the start (fixes grey
+        // sliders and invisible text in the release build).
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+
         if window == nil {
             let w = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 820, height: 620),
@@ -42,16 +48,14 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             w.titlebarAppearsTransparent = true
             w.minSize = NSSize(width: 720, height: 480)
             w.isReleasedWhenClosed = false
-            w.appearance = nil
+            w.appearance = NSApp.effectiveAppearance
             w.contentView = NSHostingView(rootView: SettingsView())
             w.center()
             w.delegate = self
             window = w
         }
         CommandPanelController.shared.hide()
-        NSApp.setActivationPolicy(.regular)
         window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -735,6 +739,10 @@ private struct ProfileEditorView: View {
     @State private var isDirty: Bool = false
     @State private var isActiveProfile: Bool = false
 
+    private var temperatureDisabled: Bool {
+        draft.thinkingEnabled && draft.provider != .anthropic
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -778,8 +786,11 @@ private struct ProfileEditorView: View {
                 // System Prompt
                 VStack(alignment: .leading, spacing: 5) {
                     fieldLabel("System Prompt")
-                    PasteableTextEditor(text: $draft.systemPrompt)
+                    TextEditor(text: $draft.systemPrompt)
+                        .font(.system(.body, design: .monospaced))
                         .frame(height: 90)
+                        .scrollContentBackground(.hidden)
+                        .padding(6)
                         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
@@ -805,7 +816,6 @@ private struct ProfileEditorView: View {
                             ),
                             in: 256...16384, step: 256
                         )
-                        .tint(.accentColor)
                     }
 
                     Divider().opacity(0.4)
@@ -816,7 +826,7 @@ private struct ProfileEditorView: View {
                             Spacer()
                             Text(String(format: "%.1f", draft.temperature))
                                 .font(.caption.monospacedDigit())
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(temperatureDisabled ? .tertiary : .secondary)
                         }
                         Slider(
                             value: Binding(
@@ -825,15 +835,57 @@ private struct ProfileEditorView: View {
                             ),
                             in: 0.0...2.0, step: 0.1
                         )
-                        .tint(.accentColor)
-                        Text("Lower = focused · Higher = creative")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                        .disabled(temperatureDisabled)
+                        .opacity(temperatureDisabled ? 0.35 : 1.0)
+                        if temperatureDisabled {
+                            Text("Temperature is ignored when thinking mode is on for this provider.")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                        } else {
+                            Text("Lower = focused · Higher = creative")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                 }
                 .padding(14)
                 .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+
+                // Thinking / Reasoning
+                if draft.provider.supportsThinking {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Toggle(isOn: $draft.thinkingEnabled) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Enable thinking / reasoning")
+                                    .font(.callout)
+                                Text(draft.provider.thinkingDescription)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .onChange(of: draft.thinkingEnabled) { _, _ in isDirty = true }
+
+                        if draft.thinkingEnabled {
+                            HStack(spacing: 10) {
+                                fieldLabel("Effort")
+                                Picker("", selection: $draft.reasoningEffort) {
+                                    ForEach(ReasoningEffort.allCases, id: \.self) { e in
+                                        Text(e.displayName).tag(e)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+                                .onChange(of: draft.reasoningEffort) { _, _ in isDirty = true }
+                            }
+                            Text("Higher effort = more thinking tokens = better on hard tasks, but slower and pricier.")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .padding(14)
+                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+                }
 
                 // Actions
                 HStack(spacing: 8) {

@@ -723,14 +723,51 @@ private struct StatusBar: View {
     var onClose: () -> Void
 
     var body: some View {
-        let profile = ProfilesStore.shared.activeProfile
+        let active = ProfilesStore.shared.activeProfile
+        let all = ProfilesStore.shared.profiles
+
         HStack(spacing: 8) {
-            Circle()
-                .fill(providerColor(profile.provider))
-                .frame(width: 7, height: 7)
-            Text(profile.name)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            if all.count > 1 {
+                Menu {
+                    ForEach(all) { p in
+                        Button {
+                            ProfilesStore.shared.activate(p.id)
+                        } label: {
+                            HStack {
+                                Text(p.name)
+                                if p.id == ProfilesStore.shared.activeProfileId {
+                                    Spacer()
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(providerColor(active.provider))
+                            .frame(width: 7, height: 7)
+                        Text(active.name)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 7, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+            } else {
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(providerColor(active.provider))
+                        .frame(width: 7, height: 7)
+                    Text(active.name)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Spacer()
             Text("ESC")
                 .font(.system(.caption2, design: .monospaced))
