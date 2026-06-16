@@ -28,6 +28,12 @@ mkdir -p "$APP/Contents/Resources"
 cp "$BUILD_PATH/BlindSpot" "$APP/Contents/MacOS/BlindSpot"
 cp assets/BlindSpot.icns "$APP/Contents/Resources/BlindSpot.icns"
 
+# Bundle Sparkle.framework so the app can launch and check for updates.
+# The binary links against @rpath/Sparkle.framework with rpath set to
+# @executable_path/../lib, so framework goes in Contents/lib/.
+mkdir -p "$APP/Contents/lib"
+cp -R "$BUILD_PATH/Sparkle.framework" "$APP/Contents/lib/"
+
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
