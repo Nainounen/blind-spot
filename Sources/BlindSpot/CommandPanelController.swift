@@ -217,6 +217,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         p.backgroundColor = .clear
         p.hasShadow = true
         p.level = .floating
+        p.hidesOnDeactivate = false
         let isDemo = ProcessInfo.processInfo.environment["BLIND_SPOT_DEMO"] == "1"
         p.sharingType = isDemo ? .readOnly : .none
         p.isMovableByWindowBackground = true
