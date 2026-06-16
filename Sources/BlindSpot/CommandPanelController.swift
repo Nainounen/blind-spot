@@ -137,7 +137,9 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
                 await MainActor.run {
                     vm.isLoading = false
                     guard !completed.isEmpty else {
-                        vm.errorMessage = "No response — try increasing Max Output Tokens in the profile settings."
+                        if !Task.isCancelled {
+                            vm.errorMessage = "No response — try increasing Max Output Tokens in the profile settings."
+                        }
                         return
                     }
                     vm.activeConversation?.messages.append(
@@ -155,7 +157,9 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
             } catch {
                 await MainActor.run {
                     vm.isLoading = false
-                    vm.errorMessage = error.localizedDescription
+                    if !(error is CancellationError) {
+                        vm.errorMessage = error.localizedDescription
+                    }
                 }
             }
         }
