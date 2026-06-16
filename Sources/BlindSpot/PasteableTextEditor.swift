@@ -29,14 +29,7 @@ struct PasteableTextEditor: NSViewRepresentable {
         tv.isAutomaticLinkDetectionEnabled = false
         tv.drawsBackground = false
         tv.backgroundColor = .clear
-        // usesAdaptiveColorMappingForDarkAppearance is the correct Apple API
-        // for NSTextViews with drawsBackground=false inside material/vibrancy
-        // containers. Without it, NSTextView can't resolve dynamic colors
-        // (textColor, insertion point) against the correct appearance context.
-        tv.usesAdaptiveColorMappingForDarkAppearance = true
         tv.textContainerInset = NSSize(width: 6, height: 6)
-        // NSColor.textColor is the semantic color for editable text fields;
-        // .labelColor is for static labels and should not be used here.
         tv.textColor = .textColor
         tv.insertionPointColor = .textColor
         tv.typingAttributes = textAttributes
@@ -80,6 +73,17 @@ struct PasteableTextEditor: NSViewRepresentable {
 }
 
 private final class EditingTextView: NSTextView {
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: font ?? NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular),
+            .foregroundColor: NSColor.textColor,
+        ]
+        textStorage?.addAttributes(attrs, range: NSRange(location: 0, length: textStorage?.length ?? 0))
+        typingAttributes = attrs
+        insertionPointColor = .textColor
+    }
+
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard mods.contains(.command) else { return super.performKeyEquivalent(with: event) }
