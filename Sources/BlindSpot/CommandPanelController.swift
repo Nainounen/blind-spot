@@ -139,8 +139,11 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
                     )
                     if let conv = vm.activeConversation {
                         ConversationStore.shared.upsert(conv)
-                        // Sync back the store's copy (which has updatedAt stamped)
                         vm.activeConversation = ConversationStore.shared.conversation(id: conv.id)
+                    }
+                    if PreferencesStore.shared.autoCopyLastResponse {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(completed, forType: .string)
                     }
                 }
             } catch {

@@ -563,32 +563,33 @@ private struct TurnView: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    if isHovered {
-                        HStack {
-                            Spacer()
-                            Button {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(turn.response, forType: .string)
-                                isCopied = true
-                                Task {
-                                    try? await Task.sleep(nanoseconds: 1_500_000_000)
-                                    isCopied = false
-                                }
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
-                                        .font(.caption2)
+                    HStack {
+                        Spacer()
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(turn.response, forType: .string)
+                            isCopied = true
+                            Task {
+                                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                                isCopied = false
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
+                                    .font(.caption2)
+                                if isHovered {
                                     Text(isCopied ? "Copied" : "Copy")
                                         .font(.caption2)
                                 }
-                                .foregroundStyle(isCopied ? .green : .secondary)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 5))
                             }
-                            .buttonStyle(.plain)
-                            .help("Copy response")
+                            .foregroundStyle(isCopied ? .green : .secondary)
+                            .padding(.horizontal, isHovered ? 8 : 5)
+                            .padding(.vertical, 4)
+                            .background(Color.primary.opacity(isHovered ? 0.06 : 0.04), in: RoundedRectangle(cornerRadius: 5))
                         }
+                        .buttonStyle(.plain)
+                        .help("Copy response")
+                        .animation(.easeInOut(duration: 0.12), value: isHovered)
                     }
                 }
             }
