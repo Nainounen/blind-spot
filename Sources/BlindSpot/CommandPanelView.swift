@@ -289,6 +289,17 @@ private struct FolderSection: View {
             }
             .contextMenu {
                 Button("Rename Folder") { renameDraft = folder.name; isRenaming = true }
+                if !conversations.isEmpty {
+                    Divider()
+                    Menu("Export Folder") {
+                        Button("Export as Markdown") {
+                            exportFolder(folder, conversations: conversations, format: .markdown)
+                        }
+                        Button("Export as JSON") {
+                            exportFolder(folder, conversations: conversations, format: .json)
+                        }
+                    }
+                }
                 Divider()
                 Button("Delete Folder", role: .destructive) {
                     ConversationStore.shared.deleteFolder(folder.id)

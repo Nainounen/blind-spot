@@ -156,7 +156,12 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
 
     func windowDidResignKey(_ notification: Notification) {
         guard PreferencesStore.shared.closeOnFocusLoss else { return }
-        hide()
+        // Defer one run loop so NSApp.keyWindow reflects the new state.
+        // If an alert or sheet within BlindSpot is now key, don't hide.
+        DispatchQueue.main.async { [weak self] in
+            guard NSApp.keyWindow == nil else { return }
+            self?.hide()
+        }
     }
 
     func windowWillClose(_ notification: Notification) {
