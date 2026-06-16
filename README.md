@@ -38,7 +38,8 @@ Once done, the **✦** icon appears in your menu bar.
 
 ---
 
-## What's new in v2.0
+<details>
+<summary><strong>What's new in v2.0</strong></summary>
 
 ### Added — Raycast-style command panel
 The overlay is now a persistent panel that opens with your hotkey and stays available throughout a session. It has a conversation sidebar with date-grouped history, folder organization, and a follow-up input field.
@@ -78,6 +79,8 @@ Typing in the system prompt field was invisible in dark mode. Fixed by using `us
 
 ### Fixed — Panel auto-hide setting ignored
 The "Close panel when clicking outside" setting now works correctly.
+
+</details>
 
 ---
 
