@@ -19,6 +19,26 @@ Releases are built by CI via `make-release.sh` and published automatically when 
 
 Bump `VERSION` (e.g. `1.0.7` → `1.0.8`), commit, and push to `main`. GitHub Actions builds a universal `.app`, packages it as a DMG, and publishes a GitHub Release. The Homebrew tap updates automatically.
 
+## Hotkeys
+
+| Shortcut | Action | Status |
+|---|---|---|
+| `⌘⇧Space` | Ask about selected text (standard) | Stable |
+| `⌘⌥A` | Answer current exam question via AX | **Beta** |
+| `⌘⌥⇧A` | Answer all questions on page via AX | **Beta** |
+| `⌘⌥Q` | Panic quit | Stable |
+
+### Auto-Answer (Beta)
+
+The auto-answer feature (`AutoAnswerService`) uses the Accessibility API to read exam questions from the AX tree around the focused field, sends them to the configured AI, and pastes the answer back. It supports text inputs, radio/checkbox groups, select dropdowns, and ordering questions.
+
+**Known limitations (beta):**
+- Text input paste can be unreliable in some WebKit configurations
+- Multi-select (checkbox) questions sometimes only select one option
+- Ordering questions (drag-and-drop) have limited support
+- Answer-All can be slow with many questions due to sequential AI calls
+- Not guaranteed to work with all exam platforms (Safe Exam Browser, lockdown browsers)
+
 ## Architecture
 
 `AppDelegate` coordinates five controllers:
@@ -68,7 +88,13 @@ Sources/BlindSpot/
   Config.swift                   — Provider enum, static config reads
   PreferencesStore.swift         — @Observable prefs, Combine publishers
   AIService.swift                — streaming query, all provider adapters
+  AutoAnswerService.swift        — [BETA] AX-based exam auto-answer (⌘⌥A / ⌘⌥⇧A)
   ConversationMessage.swift      — Role enum + message struct
+  ConversationStore.swift        — conversation persistence, CRUD
+  AIProfile.swift                — profile model (provider, model, prompt, temp)
+  CommandPanelController.swift   — floating command panel window
+  CommandPanelView.swift         — SwiftUI command panel UI
+  CommandPanelViewModel.swift    — conversation state + turn model
   HistoryStore.swift             — persistence, max 10 entries
   OverlayWindowController.swift  — panel lifecycle, conversation, ESC monitor
   OverlayView.swift              — SwiftUI overlay UI, markdown renderer, OverlayViewModel
@@ -77,6 +103,8 @@ Sources/BlindSpot/
   SettingsView.swift             — settings panel + SettingsWindowController
   PasteableKeyField.swift        — NSTextField wrapper with keyboard shortcut support
   HotkeyManager.swift            — CGEvent tap, hotkey recording
+  Hotkey.swift                   — Hotkey model + display helpers
+  HotkeyRecorder.swift           — SwiftUI key recording control
   TextCapture.swift              — AX API selected text extraction
   OllamaService.swift            — model discovery at localhost:11434
 ```

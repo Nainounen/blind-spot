@@ -20,6 +20,16 @@ struct Hotkey: Codable, Equatable {
         modifiers: NSEvent.ModifierFlags([.command, .option]).rawValue
     )
 
+    static let defaultAutoAnswer = Hotkey(
+        keyCode: 0, // A
+        modifiers: NSEvent.ModifierFlags([.command, .option]).rawValue
+    )
+
+    static let defaultAnswerAll = Hotkey(
+        keyCode: 0, // A
+        modifiers: NSEvent.ModifierFlags([.command, .option, .shift]).rawValue
+    )
+
     var modifierFlags: NSEvent.ModifierFlags {
         NSEvent.ModifierFlags(rawValue: modifiers)
     }
