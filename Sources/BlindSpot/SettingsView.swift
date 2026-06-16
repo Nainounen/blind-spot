@@ -187,12 +187,11 @@ struct SettingsView: View {
                 let keyProviders = Provider.allCases.filter { $0.requiresKey }
                 ForEach(Array(keyProviders.enumerated()), id: \.element.rawValue) { idx, provider in
                     HStack(spacing: 10) {
-                        Circle()
-                            .fill(prefs.hasKey(for: provider) ? Color.green : Color.orange.opacity(0.8))
-                            .frame(width: 7, height: 7)
+                        ProviderIcon(provider: provider, size: 18)
+                            .foregroundStyle(prefs.hasKey(for: provider) ? Color.primary : Color.secondary.opacity(0.5))
 
                         Text(provider.displayName)
-                            .frame(width: 96, alignment: .leading)
+                            .frame(width: 90, alignment: .leading)
                             .font(.callout)
 
                         if provider == prefs.providerChoice {
@@ -241,17 +240,16 @@ struct SettingsView: View {
                     .padding(.horizontal, 10)
 
                     if idx < keyProviders.count - 1 {
-                        Divider().padding(.leading, 27)
+                        Divider().padding(.leading, 28)
                     }
                 }
 
-                Divider().padding(.leading, 27)
+                Divider().padding(.leading, 28)
                 HStack(spacing: 10) {
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 7, height: 7)
+                    ProviderIcon(provider: .ollama, size: 18)
+                        .foregroundStyle(Color.primary)
                     Text("Ollama")
-                        .frame(width: 96, alignment: .leading)
+                        .frame(width: 90, alignment: .leading)
                         .font(.callout)
                     if prefs.providerChoice == .ollama {
                         Text("active")
@@ -738,6 +736,8 @@ private struct ProfileEditorView: View {
 
     @State private var isDirty: Bool = false
     @State private var isActiveProfile: Bool = false
+    @State private var ollamaModels: [OllamaService.Model] = []
+    @State private var ollamaLoading: Bool = false
 
     private var temperatureDisabled: Bool {
         draft.thinkingEnabled && draft.provider != .anthropic
@@ -776,10 +776,24 @@ private struct ProfileEditorView: View {
                         .labelsHidden()
                         .frame(width: 120)
 
-                        TextField("Model identifier", text: $draft.model)
-                            .textFieldStyle(.plain)
-                            .glassField()
-                            .onChange(of: draft.model) { _, _ in isDirty = true }
+                        if draft.provider == .ollama {
+                            ollamaModelPicker
+                        } else {
+                            TextField("Model identifier", text: $draft.model)
+                                .textFieldStyle(.plain)
+                                .glassField()
+                                .onChange(of: draft.model) { _, _ in isDirty = true }
+                        }
+                    }
+                }
+                .task(id: draft.provider) {
+                    guard draft.provider == .ollama else { return }
+                    ollamaLoading = true
+                    ollamaModels = await OllamaService.listInstalledModels() ?? []
+                    ollamaLoading = false
+                    if !ollamaModels.isEmpty && !ollamaModels.contains(where: { $0.name == draft.model }) {
+                        draft.model = ollamaModels[0].name
+                        isDirty = true
                     }
                 }
 
@@ -931,6 +945,40 @@ private struct ProfileEditorView: View {
         }
         .onAppear {
             isActiveProfile = (draft.id == ProfilesStore.shared.activeProfileId)
+        }
+    }
+
+    @ViewBuilder
+    private var ollamaModelPicker: some View {
+        if ollamaLoading {
+            HStack(spacing: 6) {
+                ProgressView().scaleEffect(0.6)
+                Text("Loading models…").font(.callout).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassField()
+        } else if ollamaModels.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                TextField("Model identifier", text: $draft.model)
+                    .textFieldStyle(.plain)
+                    .glassField()
+                    .onChange(of: draft.model) { _, _ in isDirty = true }
+                Text("Ollama not running or no models installed. Type a model name manually.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        } else {
+            Picker("", selection: Binding(
+                get: { draft.model },
+                set: { draft.model = $0; isDirty = true }
+            )) {
+                ForEach(ollamaModels, id: \.name) { m in
+                    Text(m.name).tag(m.name)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
