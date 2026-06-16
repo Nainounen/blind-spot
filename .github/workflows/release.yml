@@ -113,6 +113,7 @@ jobs:
           "$SPARKLE_TOOLS/generate_appcast" \
             --ed-key-file "$KEYFILE" \
             --link "https://github.com/Nainounen/blind-spot/releases" \
+            --download-url-prefix "https://github.com/Nainounen/blind-spot/releases/download/v${{ steps.meta.outputs.version }}/" \
             dist/
           rm -f "$KEYFILE"
           # generate_appcast writes into the scanned directory (dist/); copy to repo root

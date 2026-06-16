@@ -20,7 +20,7 @@ Select any text, press **⌘⇧Space**, and an answer streams back in a floating
 3. Open the DMG and drag **BlindSpot** to **Applications**
 4. First launch: right-click → **Open** → **Open**
 
-That last step is a one-time workaround — BlindSpot isn't notarized yet, so macOS flags it the first time. After that, it opens normally.
+That last step is a one-time workaround — BlindSpot isn't notarized yet, so macOS flags it the first time. After that it opens normally.
 
 **Requires macOS 14 Sonoma or later. Works on Apple Silicon and Intel.**
 
@@ -38,31 +38,46 @@ Once done, the **✦** icon appears in your menu bar.
 
 ---
 
-## What's new in v2
+## What's new in v2.0
 
-### Raycast-style command panel
-The overlay is now a persistent command panel that opens with your hotkey and stays available throughout a session. It has a conversation sidebar, date-grouped history, and a follow-up input — closer to a chat interface than a one-shot overlay.
+### Added — Raycast-style command panel
+The overlay is now a persistent panel that opens with your hotkey and stays available throughout a session. It has a conversation sidebar with date-grouped history, folder organization, and a follow-up input field.
 
-### AI profiles
-Multiple profiles, each with its own provider, model, system prompt, temperature, and token limit. Switch the active profile from the menu bar. Useful for keeping a fast, cheap profile separate from a slower, more thorough one.
+### Added — AI profiles
+Multiple profiles, each with its own provider, model, system prompt, temperature, and token limit. Switch the active profile from the menu bar without opening Settings.
 
-### Conversation history
-Every exchange is saved and searchable. Conversations can be grouped into folders and exported as Markdown or JSON via right-click.
+### Added — Conversation history
+Every exchange is saved and searchable. Conversations can be grouped into folders, and exported as Markdown or JSON via right-click.
 
-### Glass-style settings and onboarding
-Settings and the onboarding flow use the same visual language as the command panel: thin material background, glass input fields, and consistent typography. The onboarding now shows step progress dots and real provider logos.
+### Added — Conversation folders and export
+Group conversations into named folders. Export a single conversation or an entire folder as Markdown or JSON from the right-click menu.
 
-### Provider logos
-The provider picker shows actual brand icons instead of SF Symbols.
+### Added — Sparkle auto-updates
+BlindSpot checks for updates in the background and notifies you when one is available.
 
-### Copy and auto-copy
-Each response has a copy button that is always visible. Settings → Preferences has an option to automatically copy the last response to the clipboard as soon as streaming completes.
+### Added — OpenRouter support
+OpenRouter is now a first-class provider — one API key gives access to 100+ models from different providers.
 
-### Panel behavior
-A setting controls whether the panel closes when you click outside it (Raycast-style) or stays open. ESC dismisses it from any app, even when the panel is not focused.
+### Added — Provider logos
+The provider picker shows real brand icons instead of generic SF Symbols.
 
-### Sparkle auto-updates
-BlindSpot checks for updates in the background and installs them without leaving the app.
+### Added — Auto-copy last response
+A setting in Preferences automatically copies the AI response to your clipboard as soon as streaming completes.
+
+### Changed — Onboarding redesign
+The setup flow uses the same visual language as the panel: thin material background, glass input fields, step progress dots, and real provider icons.
+
+### Changed — Settings redesign
+Settings uses the same material and layout patterns as the command panel. Per-profile configuration (system prompt, temperature, token limit) replaces the old global settings.
+
+### Changed — Copy button always visible
+The copy button on responses is always visible as a small icon. It shows a label on hover.
+
+### Fixed — System prompt input invisible text
+Typing in the system prompt field was invisible in dark mode. Fixed by using `usesAdaptiveColorMappingForDarkAppearance` on the underlying `NSTextView`.
+
+### Fixed — Panel auto-hide setting ignored
+The "Close panel when clicking outside" setting now works correctly.
 
 ---
 
@@ -76,7 +91,7 @@ BlindSpot checks for updates in the background and installs them without leaving
 | ESC | Close the panel |
 | ⌘⌥Q | Force-quit |
 
-All shortcuts except ⌘N, ⌘K, and ESC are configurable in Settings.
+Trigger and panic shortcuts are configurable in Settings → Hotkeys.
 
 ---
 
