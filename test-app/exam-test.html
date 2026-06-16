@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BlindSpot — Exam Test (Moodle-kompatibel)</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f2f2f7; color: #1c1c1e; min-height: 100vh; padding: 40px 20px;
+    }
+    .header {
+      max-width: 760px; margin: 0 auto 24px; background: #fff; border-radius: 14px;
+      padding: 20px 28px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+      display: flex; align-items: center; gap: 16px;
+    }
+    .header h1 { font-size: 18px; font-weight: 600; }
+    .header p { font-size: 13px; color: #636366; margin-top: 2px; }
+    .badges { margin-left: auto; display: flex; gap: 8px; flex-shrink: 0; }
+    .badge {
+      background: #f2f2f7; border: 1px solid #e5e5ea; border-radius: 8px;
+      padding: 6px 10px; font-size: 11px; color: #3a3a3c; text-align: center;
+    }
+    .badge kbd {
+      background: #fff; border: 1px solid #c7c7cc; border-radius: 4px;
+      padding: 1px 6px; font: inherit; font-weight: 600; box-shadow: 0 1px 0 #c7c7cc;
+    }
+    .section-label {
+      max-width: 760px; margin: 28px auto 0;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .8px; color: #8e8e93; padding-left: 4px;
+    }
+    .questions { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+    /* ── Question card ── */
+    .q-card {
+      background: #fff; border-radius: 14px; padding: 24px 28px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    .q-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .q-num { background: #5e5ce6; color: #fff; border-radius: 8px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+    .q-type { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: #8e8e93; }
+    .q-points { margin-left: auto; font-size: 12px; color: #8e8e93; background: #f2f2f7; border-radius: 6px; padding: 3px 9px; }
+
+    /* ── Question text (Moodle: .qtext) ── */
+    .qtext { font-size: 16px; line-height: 1.6; color: #1c1c1e; margin-bottom: 18px; }
+    .qtext strong { font-weight: 600; }
+
+    /* ── Short answer / essay ── */
+    .ablock { margin-top: 4px; }
+    .field-label { font-size: 12px; font-weight: 600; color: #8e8e93; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+    textarea, input[type="text"] {
+      width: 100%; border: 1.5px solid #e5e5ea; border-radius: 10px;
+      padding: 12px 14px; font: inherit; font-size: 15px; color: #1c1c1e;
+      background: #fafafa; outline: none; transition: border-color .15s, box-shadow .15s;
+    }
+    textarea { resize: vertical; min-height: 88px; }
+    input[type="text"] { min-height: 44px; }
+    textarea:focus, input[type="text"]:focus {
+      border-color: #5e5ce6; box-shadow: 0 0 0 3px rgba(94,92,230,.12); background: #fff;
+    }
+    input[type="text"]::placeholder, textarea::placeholder { color: #c7c7cc; }
+
+    /* ── Multichoice / True-False (Moodle-style: fieldset.ablock > .answer > .r0/.r1) ── */
+    fieldset.ablock {
+      border: none; padding: 0; margin: 0;
+    }
+    fieldset.ablock legend.prompt {
+      font-size: 12px; font-weight: 600; color: #8e8e93;
+      text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px;
+    }
+    .answer { display: flex; flex-direction: column; gap: 6px; }
+    .r0, .r1 {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border: 1.5px solid #e5e5ea; border-radius: 10px;
+      cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .r0:hover, .r1:hover { background: #f2f2f7; border-color: #c7c7cc; }
+    input[type="radio"], input[type="checkbox"] { accent-color: #5e5ce6; width: 16px; height: 16px; flex-shrink: 0; }
+    .answernumber { font-weight: 600; color: #8e8e93; min-width: 20px; }
+    .flex-fill { flex: 1; }
+
+    /* ── Select dropdown (Moodle match/gapselect) ── */
+    select.form-select {
+      padding: 8px 12px; border: 1.5px solid #e5e5ea; border-radius: 10px;
+      font: inherit; font-size: 15px; background: #fafafa; outline: none;
+      min-width: 200px; cursor: pointer;
+    }
+    select.form-select:focus {
+      border-color: #5e5ce6; box-shadow: 0 0 0 3px rgba(94,92,230,.12);
+    }
+
+    /* ── Match table ── */
+    .match-table { width: 100%; border-collapse: collapse; }
+    .match-table td { padding: 8px 12px; vertical-align: middle; }
+    .match-table .stem { font-size: 15px; }
+
+    .hint {
+      font-size: 12px; color: #8e8e93; margin-top: 8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .hint::before { content: "↑"; font-size: 14px; color: #5e5ce6; }
+
+    .submit-bar {
+      max-width: 760px; margin: 28px auto 0; display: flex; justify-content: flex-end; gap: 10px;
+    }
+    button { padding: 12px 24px; border-radius: 10px; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+    button.pri { background: #5e5ce6; color: #fff; border: none; }
+    button.pri:hover { opacity: .88; }
+    button.sec { background: #f2f2f7; color: #3a3a3c; border: 1.5px solid #e5e5ea; font-weight: 500; }
+
+    .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Allgemeinwissen — Testprüfung</h1>
+    <p>12 Fragen · 45 Minuten · Modul BL-101 (Moodle-kompatibel)</p>
+  </div>
+  <div class="badges">
+    <div class="badge">Einzelfrage<br><kbd>⌘⌥A</kbd></div>
+    <div class="badge">Alle Fragen<br><kbd>⌘⌥⇧A</kbd></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!--  SECTION 1 — Short Answer / Essay (Moodle)      -->
+<!-- ═══════════════════════════════════════════════ -->
+<p class="section-label">Abschnitt 1 — Kurzantworten (Moodle: shortanswer, essay, numerical)</p>
+<div class="questions">
+
+  <!-- Q1: shortanswer -->
+  <div class="q-card">
+    <div class="q-meta"><div class="q-num">1</div><span class="q-type">Short Answer</span><span class="q-points">2 Pkt</span></div>
+    <div class="qtext">Was ist die <strong>Hauptstadt von Frankreich</strong>?</div>
+    <div class="ablock">
+      <label class="visually-hidden" for="q1_answer">Antwort</label>
+      <input type="text" name="q1_answer" id="q1_answer" size="80" placeholder="Antwort eingeben…">
+    </div>
+    <div class="hint">Ins Feld klicken + ⌘⌥A</div>
+  </div>
+
+  <!-- Q2: numerical -->
+  <div class="q-card">
+    <div class="q-meta"><div class="q-num">2</div><span class="q-type">Numerical</span><span class="q-points">2 Pkt</span></div>
+    <div class="qtext">In welchem <strong>Jahr</strong> landeten die ersten Menschen auf dem Mond?</div>
+    <div class="ablock">
+      <label class="visually-hidden" for="q2_answer">Antwort</label>
+      <input type="text" name="q2_answer" id="q2_answer" size="30" placeholder="Jahr eingeben…">
+    </div>
+    <div class="hint">Ins Feld klicken + ⌘⌥A</div>
+  </div>
+
+  <!-- Q3: essay (textarea) -->
+  <div class="q-card">
+    <div class="q-meta"><div class="q-num">3</div><span class="q-type">Essay</span><span class="q-points">4 Pkt</span></div>
+    <div class="qtext">Erkläre in 2–3 Sätzen, was <strong>Photosynthese</strong> ist und warum sie für das Leben auf der Erde wichtig ist.</div>
+    <div class="ablock">
+      <label class="visually-hidden" for="q3_answer">Antworttext</label>
+      <textarea name="q3_answer" id="q3_answer" rows="6" cols="60" placeholder="Antwort eingeben…"></textarea>
+    </div>
+    <div class="hint">Ins Feld klicken + ⌘⌥A</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!--  SECTION 2 — Multichoice (Moodle-style)          -->
+<!-- ═══════════════════════════════════════════════ -->
+<p class="section-label">Abschnitt 2 — Multiple Choice (Moodle: multichoice single)</p>
+<div class="questions">
+
+  <!-- Q4: multichoice single — Moodle structure: fieldset.ablock > .answer > .r0/.r1 -->
+  <div class="q-card">
+    <div class="q-meta"><div class="q-num">4</div><span class="q-type">Single Choice</span><span class="q-points">2 Pkt</span></div>
+    <div class="qtext">Welches ist das <strong>grösste Land der Erde</strong> nach Fläche?</div>
+    <fieldset class="ablock">
+      <legend class="prompt">Wähle eine Antwort:</legend>
+      <div class="answer">
+        <div class="r0">
+          <input type="radio" name="q4" value="0" id="q4_a0" aria-labelledby="q4_a0_label">
+          <div class="d-flex" id="q4_a0_label" data-region="answer-label">
+            <span class="answernumber">a.</span><span class="flex-fill">China</span>
+          </div>
+        </div>
+        <div class="r1">
+          <input type="radio" name="q4" value="1" id="q4_a1" aria-labelledby="q4_a1_label">
+          <div class="d-flex" id="q4_a1_label" data-region="answer-label">
+            <span class="answernumber">b.</span><span class="flex-fill">Russland</span>
+          </div>
+        </div>
+        <div class="r0">
+          <input type="radio" name="q4" value="2" id="q4_a2" aria-labelledby="q4_a2_label">
+          <div class="d-flex" id="q4_a2_label" data-region="answer-label">
+            <span class="answernumber">c.</span><span class="flex-fill">Kanada</span>
+          </div>
+        </div>
+        <div class="r1">
+          <input type="radio" name="q4" value="3" id="q4_a3" aria-labelledby="q4_a3_label">
+          <div class="d-flex" id="q4_a3_label" data-region="answer-label">
+            <span class="answernumber">d.</span><span class="flex-fill">USA</span>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+    <div class="hint">Auf eine Option klicken + ⌘⌥A</div>
+  </div>
+
+  <!-- Q5: multichoice — Informatik -->
+  <div class="q-card">
+    <div class="q-meta"><div class="q-num">5</div><span class="q-type">Single Choice</span><span class="q-points">2 Pkt</span></div>
+    <div class="qtext">Was bedeutet die Abkürzung <strong>HTTP</strong>?</div>
+    <fieldset class="ablock">
+      <legend class="prompt">Wähle eine Antwort:</legend>
+      <div class="answer">
+        <div class="r0">
+          <input type="radio" name="q5" value="0" id="q5_a0" aria-labelledby="q5_a0_label">
+          <div class="d-flex" id="q5_a0_label"><span class="answernumber">a.</span><span class="flex-fill">HyperText Transfer Protocol</span></div>
+        </div>
+        <div class="r1">
+          <input type="radio" name="q5" value="1" id="q5_a1" aria-labelledby="q5_a1_label">
+          <div class="d-flex" id="q5_a1_label"><span class="answernumber">b.</span><span class="flex-fill">High Tech Text Parser</span></div>
+        </div>
+        <div class="r0">
+          <input type="radio" name="q5" value="2" id="q5_a2" aria-labelledby="q5_a2_label">
+          <div class="d-flex" id="q5_a2_label"><span class="answernumber">c.</span><span class="flex-fill">HyperText Transmission Program</span></div>
+        </div>
+        <div class="r1">
+          <input type="radio" name="q5" value="3" id="q5_a3" aria-labelledby="q5_a3_label">
+          <div class="d-flex" id="q5_a3_label"><span class="answernumber">d.</span><span class="flex-fill">Host-To-Host Transfer Path</span></div>
+        </div>
+      </div>
+    </fieldset>
+    <div class="hint">Auf eine Option klicken + ⌘⌥A</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!--  SECTION 3 — True/False (Moodle)                 -->
+<!-- ═══════════════════════════════════════════════ -->
+<p class="section-label">Abschnitt 3 — Wahr / Falsch (Moodle: truefalse)</p>
+<div class="questions">
+
+  <!-- Q6 -->
+  <div class="q-card">
+    <div class="q-meta"><div class="q-num">6</div><span class="q-type">True/False</span><span class="q-points">1 Pkt</span></div>
+    <div class="qtext">Die <strong>Erde</strong> ist näher an der Sonne als der Mars.</div>
+    <fieldset class="ablock">
+      <legend class="prompt">Wähle eine Antwort:</legend>
+      <div class="answer">
+        <div class="r0">
+          <input type="radio" name="q6" value="1" id="q6_true">
+          <label for="q6_true" class="flex-fill">Wahr</label>
+        </div>
+        <div class="r1">
+          <input type="radio" name="q6" value="0" id="q6_false">
+          <label for="q6_false" class="flex-fill">Falsch</label>
+        </div>
+      </div>
+    </fieldset>
+    <div class="hint">Auf eine Option klicken + ⌘⌥A</div>
+  </div>
+
+  <!-- Q7 -->
+  <div class="q-card">
+    <div class="q-meta"><div class="q-num">7</div><span class="q-type">True/False</span><span class="q-points">1 Pkt</span></div>
+    <div class="qtext"><strong>HTML</strong> ist eine Programmiersprache.</div>
+    <fieldset class="ablock">
+      <legend class="prompt">Wähle eine Antwort:</legend>
+      <div class="answer">
+        <div class="r0">
+          <input type="radio" name="q7" value="1" id="q7_true">
+          <label for="q7_true" class="flex-fill">Wahr</label>
+        </div>
+        <div class="r1">
+          <input type="radio" name="q7" value="0" id="q7_false">
+          <label for="q7_false" class="flex-fill">Falsch</label>
+        </div>
+      </div>
+    </fieldset>
+    <div class="hint">Auf eine Option klicken + ⌘⌥A</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!--  SECTION 4 — Match (Moodle: match)              -->
+<!-- ═══════════════════════════════════════════════ -->
+<p class="section-label">Abschnitt 4 — Zuordnen (Moodle: match)</p>
+<div class="questions">
+
+  <!-- Q8: Matching — table with selects -->
+  <div class="q-card">
+    <div class="q-meta"><div class="q-num">8</div><span class="q-type">Match</span><span class="q-points">6 Pkt</span></div>
+    <div class="qtext">Ordne jedem <strong>Land</strong> die passende <strong>Hauptstadt</strong> zu.</div>
+    <div class="ablock">
+      <table class="match-table">
+        <tr>
+          <td class="stem" id="q8_stem0">Frankreich</td>
+          <td>
+            <label class="visually-hidden" for="q8_sub0">Antwort für Frankreich</label>
+            <select name="q8_sub0" id="q8_sub0" class="form-select" aria-describedby="q8_text q8_stem0">
+              <option value="">Wählen…</option>
+              <option value="a">Berlin</option>
+              <option value="b">Paris</option>
+              <option value="c">London</option>
+              <option value="d">Madrid</option>
+              <option value="e">Rom</option>
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <td class="stem" id="q8_stem1">Deutschland</td>
+          <td>
+            <label class="visually-hidden" for="q8_sub1">Antwort für Deutschland</label>
+            <select name="q8_sub1" id="q8_sub1" class="form-select" aria-describedby="q8_text q8_stem1">
+              <option value="">Wählen…</option>
+              <option value="a">Berlin</option>
+              <option value="b">Paris</option>
+              <option value="c">London</option>
+              <option value="d">Madrid</option>
+              <option value="e">Rom</option>
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <td class="stem" id="q8_stem2">Grossbritannien</td>
+          <td>
+            <label class="visually-hidden" for="q8_sub2">Antwort für Grossbritannien</label>
+            <select name="q8_sub2" id="q8_sub2" class="form-select" aria-describedby="q8_text q8_stem2">
+              <option value="">Wählen…</option>
+              <option value="a">Berlin</option>
+              <option value="b">Paris</option>
+              <option value="c">London</option>
+              <option value="d">Madrid</option>
+              <option value="e">Rom</option>
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <td class="stem" id="q8_stem3">Spanien</td>
+          <td>
+            <label class="visually-hidden" for="q8_sub3">Antwort für Spanien</label>
+            <select name="q8_sub3" id="q8_sub3" class="form-select" aria-describedby="q8_text q8_stem3">
+              <option value="">Wählen…</option>
+              <option value="a">Berlin</option>
+              <option value="b">Paris</option>
+              <option value="c">London</option>
+              <option value="d">Madrid</option>
+              <option value="e">Rom</option>
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <td class="stem" id="q8_stem4">Italien</td>
+          <td>
+            <label class="visually-hidden" for="q8_sub4">Antwort für Italien</label>
+            <select name="q8_sub4" id="q8_sub4" class="form-select" aria-describedby="q8_text q8_stem4">
+              <option value="">Wählen…</option>
+              <option value="a">Berlin</option>
+              <option value="b">Paris</option>
+              <option value="c">London</option>
+              <option value="d">Madrid</option>
+              <option value="e">Rom</option>
+            </select>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <div class="hint">In ein Dropdown klicken + ⌘⌥A</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!--  SECTION 5 — Multichoice Multi (checkboxes)      -->
+<!-- ═══════════════════════════════════════════════ -->
+<p class="section-label">Abschnitt 5 — Multiple Choice Mehrfach (Moodle: multichoice multi)</p>
+<div class="questions">
+
+  <!-- Q9: checkboxes -->
+  <div class="q-card">
+    <div class="q-meta"><div class="q-num">9</div><span class="q-type">Multi Choice</span><span class="q-points">3 Pkt</span></div>
+    <div class="qtext">Welche der folgenden <strong>Programmiersprachen</strong> sind objektorientiert? Wähle alle zutreffenden aus.</div>
+    <fieldset class="ablock">
+      <legend class="prompt">Wähle eine oder mehrere Antworten:</legend>
+      <div class="answer">
+        <div class="r0">
+          <input type="checkbox" name="q9_c0" value="1" id="q9_c0" aria-labelledby="q9_c0_label">
+          <div class="d-flex" id="q9_c0_label"><span class="answernumber">a.</span><span class="flex-fill">Java</span></div>
+        </div>
+        <div class="r1">
+          <input type="checkbox" name="q9_c1" value="1" id="q9_c1" aria-labelledby="q9_c1_label">
+          <div class="d-flex" id="q9_c1_label"><span class="answernumber">b.</span><span class="flex-fill">Python</span></div>
+        </div>
+        <div class="r0">
+          <input type="checkbox" name="q9_c2" value="1" id="q9_c2" aria-labelledby="q9_c2_label">
+          <div class="d-flex" id="q9_c2_label"><span class="answernumber">c.</span><span class="flex-fill">HTML</span></div>
+        </div>
+        <div class="r1">
+          <input type="checkbox" name="q9_c3" value="1" id="q9_c3" aria-labelledby="q9_c3_label">
+          <div class="d-flex" id="q9_c3_label"><span class="answernumber">d.</span><span class="flex-fill">SQL</span></div>
+        </div>
+        <div class="r0">
+          <input type="checkbox" name="q9_c4" value="1" id="q9_c4" aria-labelledby="q9_c4_label">
+          <div class="d-flex" id="q9_c4_label"><span class="answernumber">e.</span><span class="flex-fill">C++</span></div>
+        </div>
+      </div>
+    </fieldset>
+    <div class="hint">Auf eine Option klicken + ⌘⌥A</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!--  SECTION 6 — Gemischt                           -->
+<!-- ═══════════════════════════════════════════════ -->
+<p class="section-label">Abschnitt 6 — Gemischt</p>
+<div class="questions">
+
+  <!-- Q10: shortanswer -->
+  <div class="q-card">
+    <div class="q-meta"><div class="q-num">10</div><span class="q-type">Short Answer</span><span class="q-points">3 Pkt</span></div>
+    <div class="qtext">Wer schrieb das Theaterstück <strong>„Romeo und Julia"</strong>?</div>
+    <div class="ablock">
+      <label class="visually-hidden" for="q10_answer">Antwort</label>
+      <input type="text" name="q10_answer" id="q10_answer" size="80" placeholder="Antwort eingeben…">
+    </div>
+    <div class="hint">Ins Feld klicken + ⌘⌥A</div>
+  </div>
+
+  <!-- Q11: single choice -->
+  <div class="q-card">
+    <div class="q-meta"><div class="q-num">11</div><span class="q-type">Single Choice</span><span class="q-points">3 Pkt</span></div>
+    <div class="qtext">Welcher <strong>Sortieralgorithmus</strong> hat im Durchschnitt die beste Zeitkomplexität?</div>
+    <fieldset class="ablock">
+      <legend class="prompt">Wähle eine Antwort:</legend>
+      <div class="answer">
+        <div class="r0">
+          <input type="radio" name="q11" value="0" id="q11_a0" aria-labelledby="q11_a0_label">
+          <div class="d-flex" id="q11_a0_label"><span class="answernumber">a.</span><span class="flex-fill">Bubble Sort — O(n²)</span></div>
+        </div>
+        <div class="r1">
+          <input type="radio" name="q11" value="1" id="q11_a1" aria-labelledby="q11_a1_label">
+          <div class="d-flex" id="q11_a1_label"><span class="answernumber">b.</span><span class="flex-fill">Merge Sort — O(n log n)</span></div>
+        </div>
+        <div class="r0">
+          <input type="radio" name="q11" value="2" id="q11_a2" aria-labelledby="q11_a2_label">
+          <div class="d-flex" id="q11_a2_label"><span class="answernumber">c.</span><span class="flex-fill">Insertion Sort — O(n²)</span></div>
+        </div>
+        <div class="r1">
+          <input type="radio" name="q11" value="3" id="q11_a3" aria-labelledby="q11_a3_label">
+          <div class="d-flex" id="q11_a3_label"><span class="answernumber">d.</span><span class="flex-fill">Selection Sort — O(n²)</span></div>
+        </div>
+      </div>
+    </fieldset>
+    <div class="hint">Auf eine Option klicken + ⌘⌥A</div>
+  </div>
+
+  <!-- Q12: single choice (Informatik) -->
+  <div class="q-card">
+    <div class="q-meta"><div class="q-num">12</div><span class="q-type">Single Choice</span><span class="q-points">3 Pkt</span></div>
+    <div class="qtext">Was versteht man unter dem Begriff <strong>DNS</strong> (Domain Name System)?</div>
+    <fieldset class="ablock">
+      <legend class="prompt">Wähle eine Antwort:</legend>
+      <div class="answer">
+        <div class="r0">
+          <input type="radio" name="q12" value="0" id="q12_a0" aria-labelledby="q12_a0_label">
+          <div class="d-flex" id="q12_a0_label"><span class="answernumber">a.</span><span class="flex-fill">Ein System zur Verschlüsselung von Domain-Namen</span></div>
+        </div>
+        <div class="r1">
+          <input type="radio" name="q12" value="1" id="q12_a1" aria-labelledby="q12_a1_label">
+          <div class="d-flex" id="q12_a1_label"><span class="answernumber">b.</span><span class="flex-fill">Ein Verzeichnisdienst, der Domain-Namen in IP-Adressen auflöst</span></div>
+        </div>
+        <div class="r0">
+          <input type="radio" name="q12" value="2" id="q12_a2" aria-labelledby="q12_a2_label">
+          <div class="d-flex" id="q12_a2_label"><span class="answernumber">c.</span><span class="flex-fill">Ein Protokoll zur Dateiübertragung im Netzwerk</span></div>
+        </div>
+        <div class="r1">
+          <input type="radio" name="q12" value="3" id="q12_a3" aria-labelledby="q12_a3_label">
+          <div class="d-flex" id="q12_a3_label"><span class="answernumber">d.</span><span class="flex-fill">Eine Firewall-Technologie für Unternehmensnetzwerke</span></div>
+        </div>
+      </div>
+    </fieldset>
+    <div class="hint">Auf eine Option klicken + ⌘⌥A</div>
+  </div>
+
+</div>
+
+<div class="submit-bar">
+  <button class="sec" onclick="clearAll()">Alles zurücksetzen</button>
+  <button class="pri" onclick="alert('Prüfung abgegeben! ✅')">Prüfung abgeben</button>
+</div>
+
+<script>
+  function clearAll() {
+    document.querySelectorAll('textarea').forEach(t => t.value = '');
+    document.querySelectorAll('input[type="text"]').forEach(t => t.value = '');
+    document.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+    document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+    document.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+  }
+</script>
+
+</body>
+</html>

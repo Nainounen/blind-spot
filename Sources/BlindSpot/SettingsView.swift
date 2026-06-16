@@ -331,59 +331,91 @@ struct SettingsView: View {
 
     private var hotkeysSection: some View {
         SettingsSection(title: "Hotkeys") {
-            HStack(alignment: .top, spacing: 24) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Trigger")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    HotkeyRecorder(
-                        hotkey: prefs.hotkey,
-                        isRecording: Binding(
-                            get: { prefs.isRecordingHotkey },
-                            set: { prefs.isRecordingHotkey = $0 }
-                        ),
-                        onCapture: { prefs.setHotkey($0) }
-                    )
-                    if prefs.hotkey != .default {
-                        Button("Reset to ⌘⇧Space") { prefs.resetHotkey() }
-                            .buttonStyle(.borderless)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("Press over selected text")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-
-                Divider()
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Panic Quit")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    HotkeyRecorder(
-                        hotkey: prefs.panicHotkey,
-                        isRecording: Binding(
-                            get: { prefs.isRecordingPanicHotkey },
-                            set: { prefs.isRecordingPanicHotkey = $0 }
-                        ),
-                        onCapture: { prefs.setPanicHotkey($0) }
-                    )
-                    if prefs.panicHotkey != .defaultPanic {
-                        Button("Reset to ⌘⌥Q") { prefs.resetPanicHotkey() }
-                            .buttonStyle(.borderless)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("Force-quits instantly")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
+            VStack(spacing: 0) {
+                hotkeyRow(
+                    label: "Trigger",
+                    hotkey: prefs.hotkey,
+                    isRecording: $prefs.isRecordingHotkey,
+                    onCapture: { prefs.setHotkey($0) },
+                    defaultHotkey: .default,
+                    resetLabel: "⌘⇧Space",
+                    resetAction: { prefs.resetHotkey() },
+                    description: "Ask about selected text"
+                )
+                Divider().opacity(0.3).padding(.leading, 84)
+                hotkeyRow(
+                    label: "Auto-Answer",
+                    hotkey: prefs.autoAnswerHotkey,
+                    isRecording: $prefs.isRecordingAutoAnswerHotkey,
+                    onCapture: { prefs.setAutoAnswerHotkey($0) },
+                    defaultHotkey: .defaultAutoAnswer,
+                    resetLabel: "⌘⌥A",
+                    resetAction: { prefs.resetAutoAnswerHotkey() },
+                    description: "Answer current question"
+                )
+                Divider().opacity(0.3).padding(.leading, 84)
+                hotkeyRow(
+                    label: "Answer All",
+                    hotkey: prefs.answerAllHotkey,
+                    isRecording: $prefs.isRecordingAnswerAllHotkey,
+                    onCapture: { prefs.setAnswerAllHotkey($0) },
+                    defaultHotkey: .defaultAnswerAll,
+                    resetLabel: "⌘⌥⇧A",
+                    resetAction: { prefs.resetAnswerAllHotkey() },
+                    description: "Answer every question"
+                )
+                Divider().opacity(0.3).padding(.leading, 84)
+                hotkeyRow(
+                    label: "Panic Quit",
+                    hotkey: prefs.panicHotkey,
+                    isRecording: $prefs.isRecordingPanicHotkey,
+                    onCapture: { prefs.setPanicHotkey($0) },
+                    defaultHotkey: .defaultPanic,
+                    resetLabel: "⌘⌥Q",
+                    resetAction: { prefs.resetPanicHotkey() },
+                    description: "Force-quit instantly"
+                )
             }
-            .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private func hotkeyRow(
+        label: String,
+        hotkey: Hotkey,
+        isRecording: Binding<Bool>,
+        onCapture: @escaping (Hotkey) -> Void,
+        defaultHotkey: Hotkey,
+        resetLabel: String,
+        resetAction: @escaping () -> Void,
+        description: String
+    ) -> some View {
+        HStack(spacing: 10) {
+            Text(label)
+                .font(.callout)
+                .frame(width: 80, alignment: .leading)
+                .foregroundStyle(.primary)
+
+            HotkeyRecorder(
+                hotkey: hotkey,
+                isRecording: isRecording,
+                onCapture: onCapture
+            )
+
+            if hotkey != defaultHotkey {
+                Button("Reset to \(resetLabel)") { resetAction() }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text(description)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 10)
     }
 
     // MARK: - Accessibility tab

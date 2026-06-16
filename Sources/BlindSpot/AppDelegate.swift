@@ -6,6 +6,8 @@ import Sparkle
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyManager: HotkeyManager?
     private var panicHotkeyManager: HotkeyManager?
+    private var autoAnswerHotkeyManager: HotkeyManager?
+    private var answerAllHotkeyManager: HotkeyManager?
     private var menuBarController: MenuBarController?
     private var onboardingController = OnboardingWindowController()
     private var settingsController = SettingsWindowController()
@@ -61,6 +63,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panicManager.start()
         panicHotkeyManager = panicManager
 
+        // Auto-answer hotkey — reads question from AX tree, pastes AI answer
+        let autoAnswerManager = HotkeyManager(hotkey: PreferencesStore.shared.autoAnswerHotkey) { [weak self] in
+            self?.handleAutoAnswerHotkey()
+        }
+        autoAnswerManager.start()
+        autoAnswerHotkeyManager = autoAnswerManager
+
+        // Answer-all hotkey — answers every question in the frontmost window
+        let answerAllManager = HotkeyManager(hotkey: PreferencesStore.shared.answerAllHotkey) { [weak self] in
+            self?.handleAnswerAllHotkey()
+        }
+        answerAllManager.start()
+        answerAllHotkeyManager = answerAllManager
+
         // Live-update the tap when the user changes the hotkey in Settings.
         PreferencesStore.shared.$hotkey
             .dropFirst()
@@ -72,6 +88,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] hk in self?.panicHotkeyManager?.update(to: hk) }
+            .store(in: &cancellables)
+
+        PreferencesStore.shared.$autoAnswerHotkey
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] hk in self?.autoAnswerHotkeyManager?.update(to: hk) }
+            .store(in: &cancellables)
+
+        PreferencesStore.shared.$answerAllHotkey
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] hk in self?.answerAllHotkeyManager?.update(to: hk) }
             .store(in: &cancellables)
 
         // Pause the tap while the user is recording so we don't swallow the
@@ -89,6 +117,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] recording in
                 if recording { self?.panicHotkeyManager?.pause() }
                 else         { self?.panicHotkeyManager?.resume() }
+            }
+            .store(in: &cancellables)
+
+        PreferencesStore.shared.$isRecordingAutoAnswerHotkey
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] recording in
+                if recording { self?.autoAnswerHotkeyManager?.pause() }
+                else         { self?.autoAnswerHotkeyManager?.resume() }
+            }
+            .store(in: &cancellables)
+
+        PreferencesStore.shared.$isRecordingAnswerAllHotkey
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] recording in
+                if recording { self?.answerAllHotkeyManager?.pause() }
+                else         { self?.answerAllHotkeyManager?.resume() }
             }
             .store(in: &cancellables)
 
@@ -125,6 +169,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.showPanel(query: text ?? "")
             }
         }
+    }
+
+    private func handleAutoAnswerHotkey() {
+        guard PreferencesStore.shared.onboardingComplete else { return }
+        AutoAnswerService.shared.run()
+    }
+
+    private func handleAnswerAllHotkey() {
+        guard PreferencesStore.shared.onboardingComplete else { return }
+        AutoAnswerService.shared.runAnswerAll()
     }
 
     private func showPanel(query: String) {

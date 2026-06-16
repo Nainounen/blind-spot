@@ -20,6 +20,10 @@ final class PreferencesStore: ObservableObject {
     @Published var isRecordingHotkey: Bool = false
     @Published var panicHotkey: Hotkey
     @Published var isRecordingPanicHotkey: Bool = false
+    @Published var autoAnswerHotkey: Hotkey
+    @Published var isRecordingAutoAnswerHotkey: Bool = false
+    @Published var answerAllHotkey: Hotkey
+    @Published var isRecordingAnswerAllHotkey: Bool = false
 
     /// Names of models installed on the local Ollama server (e.g. `llama3.2:latest`).
     @Published var installedOllamaModels: [String] = []
@@ -62,6 +66,18 @@ final class PreferencesStore: ObservableObject {
             panicHotkey = hk
         } else {
             panicHotkey = .defaultPanic
+        }
+        if let data = UserDefaults.standard.data(forKey: "autoAnswerHotkey"),
+           let hk = try? JSONDecoder().decode(Hotkey.self, from: data) {
+            autoAnswerHotkey = hk
+        } else {
+            autoAnswerHotkey = .defaultAutoAnswer
+        }
+        if let data = UserDefaults.standard.data(forKey: "answerAllHotkey"),
+           let hk = try? JSONDecoder().decode(Hotkey.self, from: data) {
+            answerAllHotkey = hk
+        } else {
+            answerAllHotkey = .defaultAnswerAll
         }
         let storedMax = UserDefaults.standard.integer(forKey: "maxTokens")
         maxTokens = storedMax > 0 ? storedMax : 4096
@@ -143,6 +159,24 @@ final class PreferencesStore: ObservableObject {
     }
 
     func resetPanicHotkey() { setPanicHotkey(.defaultPanic) }
+
+    func setAutoAnswerHotkey(_ hk: Hotkey) {
+        autoAnswerHotkey = hk
+        if let data = try? JSONEncoder().encode(hk) {
+            defaults.set(data, forKey: "autoAnswerHotkey")
+        }
+    }
+
+    func resetAutoAnswerHotkey() { setAutoAnswerHotkey(.defaultAutoAnswer) }
+
+    func setAnswerAllHotkey(_ hk: Hotkey) {
+        answerAllHotkey = hk
+        if let data = try? JSONEncoder().encode(hk) {
+            defaults.set(data, forKey: "answerAllHotkey")
+        }
+    }
+
+    func resetAnswerAllHotkey() { setAnswerAllHotkey(.defaultAnswerAll) }
 
     func setMaxTokens(_ tokens: Int) {
         maxTokens = max(256, min(8192, tokens))
