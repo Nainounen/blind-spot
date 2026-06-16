@@ -469,14 +469,30 @@ struct SettingsView: View {
     private var versionSection: some View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
         return SettingsSection(title: "About") {
-            HStack {
-                Text("BlindSpot \(version)")
-                    .font(.callout)
-                Spacer()
-                Link("Release notes ↗", destination: URL(string: "https://github.com/Nainounen/blind-spot/releases/tag/v\(version)")!)
-                    .font(.callout)
-                    .foregroundStyle(Color.accentColor)
-                    .underline()
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("BlindSpot \(version)")
+                        .font(.callout)
+                    Spacer()
+                    Link("Release notes ↗", destination: URL(string: "https://github.com/Nainounen/blind-spot/releases/tag/v\(version)")!)
+                        .font(.callout)
+                        .foregroundStyle(Color.accentColor)
+                        .underline()
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Credits")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Link("unveroleone", destination: URL(string: "https://github.com/unveroleone")!)
+                        .font(.callout)
+                        .foregroundStyle(Color.accentColor)
+                    Link("nainounen", destination: URL(string: "https://github.com/nainounen")!)
+                        .font(.callout)
+                        .foregroundStyle(Color.accentColor)
+                }
             }
         }
     }
