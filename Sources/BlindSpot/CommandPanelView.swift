@@ -655,7 +655,7 @@ private struct ConversationArea: View {
             Divider()
 
             // Follow-up bar
-            HStack(alignment: .bottom, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
                 ZStack(alignment: .topLeading) {
                     TextEditor(text: $vm.followUpText)
                         .font(.system(size: 13))
@@ -678,8 +678,8 @@ private struct ConversationArea: View {
                         Text(vm.turns.isEmpty ? "Ask anything…" : "Ask a follow-up…")
                             .font(.system(size: 13))
                             .foregroundStyle(.tertiary)
-                            .padding(.leading, 6)
-                            .padding(.top, 7)
+                            .padding(.leading, 5)
+                            .padding(.top, 2)
                             .allowsHitTesting(false)
                     }
                 }
@@ -691,7 +691,6 @@ private struct ConversationArea: View {
                             .foregroundStyle(Color.secondary)
                     }
                     .buttonStyle(.plain)
-                    .padding(.bottom, 4)
                     .help("Stop generating (Ctrl+C)")
                 } else {
                     Button(action: submit) {
@@ -704,7 +703,6 @@ private struct ConversationArea: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(vm.followUpText.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .padding(.bottom, 4)
                 }
             }
             .padding(.horizontal, 14)
