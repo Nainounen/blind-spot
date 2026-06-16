@@ -66,10 +66,8 @@ func exportConversation(_ conversation: Conversation, format: ExportFormat) {
     panel.canCreateDirectories = true
     let safeName = conversation.title.isEmpty ? "conversation" : conversation.title
     switch format {
-    case .markdown:
-        panel.nameFieldStringValue = "\(safeName).md"
-    case .json:
-        panel.nameFieldStringValue = "\(safeName).json"
+    case .markdown: panel.nameFieldStringValue = "\(safeName).md"
+    case .json:     panel.nameFieldStringValue = "\(safeName).json"
     }
     panel.begin { result in
         guard result == .OK, let url = panel.url else { return }
@@ -81,6 +79,32 @@ func exportConversation(_ conversation: Conversation, format: ExportFormat) {
             enc.outputFormatting = .prettyPrinted
             enc.dateEncodingStrategy = .iso8601
             if let data = try? enc.encode(conversation) {
+                try? data.write(to: url, options: .atomic)
+            }
+        }
+    }
+}
+
+@MainActor
+func exportFolder(_ folder: Folder, conversations: [Conversation], format: ExportFormat) {
+    let panel = NSSavePanel()
+    panel.canCreateDirectories = true
+    let safeName = folder.name.isEmpty ? "folder" : folder.name
+    switch format {
+    case .markdown: panel.nameFieldStringValue = "\(safeName).md"
+    case .json:     panel.nameFieldStringValue = "\(safeName).json"
+    }
+    panel.begin { result in
+        guard result == .OK, let url = panel.url else { return }
+        switch format {
+        case .markdown:
+            let text = conversations.map { $0.toMarkdown() }.joined(separator: "\n\n---\n\n")
+            try? text.write(to: url, atomically: true, encoding: .utf8)
+        case .json:
+            let enc = JSONEncoder()
+            enc.outputFormatting = .prettyPrinted
+            enc.dateEncodingStrategy = .iso8601
+            if let data = try? enc.encode(conversations) {
                 try? data.write(to: url, options: .atomic)
             }
         }
