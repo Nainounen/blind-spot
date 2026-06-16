@@ -21,6 +21,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
     private var streamTask: Task<Void, Never>?
     private var previousApp: NSRunningApplication?
     private var keyMonitor: Any?
+    private var globalEscMonitor: Any?
 
     private override init() {}
 
@@ -164,11 +165,12 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         panel = nil
     }
 
-    // MARK: - ESC key monitor
+    // MARK: - Key monitors
 
     private func installKeyMonitor() {
         guard keyMonitor == nil else { return }
-        // Local monitor works because the panel is key
+
+        // Local monitor handles Cmd shortcuts when the panel is key
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
             if event.keyCode == 53 { // ESC
@@ -177,13 +179,13 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
             }
             if event.modifierFlags.contains(.command) {
                 switch event.charactersIgnoringModifiers {
-                case "n": // Cmd+N → new conversation
+                case "n":
                     Task { @MainActor in self.newConversation() }
                     return nil
-                case "k", "f": // Cmd+K / Cmd+F → focus sidebar search
+                case "k", "f":
                     Task { @MainActor in self.vm.focusSidebarSearch = true }
                     return nil
-                case "w": // Cmd+W → close
+                case "w":
                     Task { @MainActor in self.hide() }
                     return nil
                 default: break
@@ -191,10 +193,17 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
             }
             return event
         }
+
+        // Global monitor fires ESC even when another app is frontmost
+        globalEscMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, event.keyCode == 53 else { return }
+            Task { @MainActor in self.hide() }
+        }
     }
 
     private func removeKeyMonitor() {
         if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil }
+        if let m = globalEscMonitor { NSEvent.removeMonitor(m); globalEscMonitor = nil }
     }
 
     // MARK: - Panel setup
