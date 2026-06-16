@@ -29,62 +29,10 @@ NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bmp)
 let ctx = NSGraphicsContext.current!.cgContext
 let space = CGColorSpaceCreateDeviceRGB()
 
-// MARK: - Diagonal purple gradient (matches the app icon palette)
+// MARK: - Solid white background
 
-let bgGradient = CGGradient(
-    colorsSpace: space,
-    colors: [
-        CGColor(colorSpace: space, components: [0.10, 0.06, 0.20, 1.0])!, // top-left, dark
-        CGColor(colorSpace: space, components: [0.22, 0.13, 0.40, 1.0])!, // bottom-right, lighter purple
-    ] as CFArray,
-    locations: [0.0, 1.0]
-)!
-ctx.drawLinearGradient(
-    bgGradient,
-    start: CGPoint(x: 0, y: pixelH),
-    end:   CGPoint(x: pixelW, y: 0),
-    options: []
-)
-
-// Soft radial glow centred behind the title for depth
-let glow = CGGradient(
-    colorsSpace: space,
-    colors: [
-        CGColor(colorSpace: space, components: [0.55, 0.36, 0.97, 0.18])!,
-        CGColor(colorSpace: space, components: [0.55, 0.36, 0.97, 0.0])!,
-    ] as CFArray,
-    locations: [0.0, 1.0]
-)!
-ctx.drawRadialGradient(
-    glow,
-    startCenter: CGPoint(x: pixelW / 2, y: pixelH * 0.78),
-    startRadius: 0,
-    endCenter:   CGPoint(x: pixelW / 2, y: pixelH * 0.78),
-    endRadius:   pixelW * 0.42,
-    options: []
-)
-
-// MARK: - Sparkle (matches the app icon's 4-pointed star)
-
-func drawSparkle(at center: CGPoint, size: CGFloat, alpha: CGFloat = 0.85) {
-    let outer = size * 0.5
-    let inner = size * 0.10
-    let path = CGMutablePath()
-    for i in 0..<8 {
-        let angle = CGFloat(i) * .pi / 4.0 - .pi / 2.0
-        let radius = i % 2 == 0 ? outer : inner
-        let pt = CGPoint(x: center.x + cos(angle) * radius,
-                         y: center.y + sin(angle) * radius)
-        if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
-    }
-    path.closeSubpath()
-    ctx.setFillColor(CGColor(colorSpace: space, components: [1, 1, 1, alpha])!)
-    ctx.addPath(path)
-    ctx.fillPath()
-}
-
-// Sparkle just to the left of the title baseline
-drawSparkle(at: CGPoint(x: pixelW / 2 - 230, y: pixelH - 138), size: 36)
+ctx.setFillColor(CGColor(colorSpace: space, components: [1, 1, 1, 1])!)
+ctx.fill(CGRect(x: 0, y: 0, width: pixelW, height: pixelH))
 
 // MARK: - Title & subtitle
 
@@ -100,12 +48,12 @@ func draw(_ string: String, font: NSFont, color: NSColor, centeredAtY y: CGFloat
 
 draw("BlindSpot",
      font: NSFont.systemFont(ofSize: 56, weight: .bold),
-     color: .white,
+     color: NSColor(white: 0.15, alpha: 1),
      centeredAtY: pixelH - 165)
 
 draw("Drag the app onto Applications to install",
      font: NSFont.systemFont(ofSize: 22, weight: .regular),
-     color: NSColor.white.withAlphaComponent(0.62),
+     color: NSColor(white: 0.4, alpha: 1),
      centeredAtY: pixelH - 220)
 
 // MARK: - Arrow between the icon positions
@@ -121,11 +69,11 @@ let iconHalfPx: CGFloat = 128            // half of 128px logical icon × 2 ≈ 
 let arrowStartX = leftIconX + iconHalfPx + 24
 let arrowEndX   = rightIconX - iconHalfPx - 24
 
-let strokeColor = CGColor(colorSpace: space, components: [1, 1, 1, 0.55])!
-ctx.setStrokeColor(strokeColor)
-ctx.setFillColor(strokeColor)
+let arrowColor = CGColor(colorSpace: space, components: [0.5, 0.5, 0.5, 0.8])!
+ctx.setStrokeColor(arrowColor)
+ctx.setFillColor(arrowColor)
 ctx.setLineCap(.round)
-ctx.setLineWidth(8)
+ctx.setLineWidth(6)
 
 // Shaft (stops short so the head fills cleanly)
 ctx.move(to: CGPoint(x: arrowStartX, y: iconRowY))
@@ -133,43 +81,13 @@ ctx.addLine(to: CGPoint(x: arrowEndX - 18, y: iconRowY))
 ctx.strokePath()
 
 // Solid triangular head
-let headW: CGFloat = 32
-let headH: CGFloat = 20
+let headW: CGFloat = 28
+let headH: CGFloat = 18
 ctx.move(to: CGPoint(x: arrowEndX, y: iconRowY))
 ctx.addLine(to: CGPoint(x: arrowEndX - headW, y: iconRowY + headH))
 ctx.addLine(to: CGPoint(x: arrowEndX - headW, y: iconRowY - headH))
 ctx.closePath()
 ctx.fillPath()
-
-// MARK: - Label legibility pills
-//
-// Finder renders icon labels in the system appearance color (black in light
-// mode). The dark background makes them unreadable. Draw a soft white-tinted
-// pill behind each label row so labels are legible in both light and dark mode.
-//
-// Icon centers (logical): BlindSpot=(160,220), Applications=(440,220)
-// Icon radius (logical): 64 → pixel 128
-// Label sits ~8px below icon bottom, roughly 18px tall (logical)
-// In pixel CG coords (origin bottom-left):
-//   icon center y = pixelH - 220*2 = 360
-//   label top     = 360 - 128 - 8  = 224
-//   label bottom  = 224 - 36       = 188
-
-func drawLabelPill(centerX: CGFloat) {
-    let pillW: CGFloat = 260
-    let pillH: CGFloat = 40
-    let pillX = centerX - pillW / 2
-    let pillY: CGFloat = 184
-    let radius: CGFloat = pillH / 2
-    let rect = CGRect(x: pillX, y: pillY, width: pillW, height: pillH)
-    let path = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
-    ctx.setFillColor(CGColor(colorSpace: space, components: [1, 1, 1, 0.18])!)
-    ctx.addPath(path)
-    ctx.fillPath()
-}
-
-drawLabelPill(centerX: leftIconX)   // BlindSpot
-drawLabelPill(centerX: rightIconX)  // Applications
 
 NSGraphicsContext.restoreGraphicsState()
 
