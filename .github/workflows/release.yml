@@ -115,6 +115,8 @@ jobs:
             --link "https://github.com/Nainounen/blind-spot/releases" \
             dist/
           rm -f "$KEYFILE"
+          # generate_appcast writes into the scanned directory (dist/); copy to repo root
+          cp dist/appcast.xml appcast.xml
           # Commit appcast.xml back to main
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
