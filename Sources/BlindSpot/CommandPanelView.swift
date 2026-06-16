@@ -817,7 +817,7 @@ struct CommandPanelView: View {
         }
     }
 
-    private func reload() {
+    @MainActor private func reload() {
         conversations = ConversationStore.shared.conversations
         folders = ConversationStore.shared.folders
     }

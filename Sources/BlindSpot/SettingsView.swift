@@ -409,10 +409,9 @@ struct SettingsView: View {
         }
         .onAppear {
             Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { t in
-                Task { @MainActor in
-                    axGranted = AXIsProcessTrusted()
-                    if axGranted { t.invalidate() }
-                }
+                let granted = AXIsProcessTrusted()
+                if granted { t.invalidate() }
+                Task { @MainActor in axGranted = granted }
             }
         }
     }
