@@ -33,6 +33,10 @@ final class PreferencesStore: ObservableObject {
     /// (i.e. the user clicks in another app). Default false — panel stays open.
     @Published var closeOnFocusLoss: Bool
 
+    /// When true, the last AI response is automatically copied to the clipboard
+    /// as soon as streaming completes.
+    @Published var autoCopyLastResponse: Bool
+
     /// Global system prompt applied to every request when no named
     /// `BLIND_SPOT_PROMPT` is set. Persisted at
     /// ~/.config/blind-spot/system-prompt.txt.
@@ -62,6 +66,7 @@ final class PreferencesStore: ObservableObject {
         let storedMax = UserDefaults.standard.integer(forKey: "maxTokens")
         maxTokens = storedMax > 0 ? storedMax : 4096
         closeOnFocusLoss = UserDefaults.standard.bool(forKey: "closeOnFocusLoss")
+        autoCopyLastResponse = UserDefaults.standard.bool(forKey: "autoCopyLastResponse")
         systemPrompt = Self.loadSystemPromptFromDisk()
     }
 
@@ -147,6 +152,11 @@ final class PreferencesStore: ObservableObject {
     func setCloseOnFocusLoss(_ value: Bool) {
         closeOnFocusLoss = value
         defaults.set(value, forKey: "closeOnFocusLoss")
+    }
+
+    func setAutoCopyLastResponse(_ value: Bool) {
+        autoCopyLastResponse = value
+        defaults.set(value, forKey: "autoCopyLastResponse")
     }
 
     // MARK: - Ollama

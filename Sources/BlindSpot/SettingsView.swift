@@ -302,6 +302,19 @@ struct SettingsView: View {
                     }
                 }
 
+                Toggle(isOn: Binding(
+                    get: { prefs.autoCopyLastResponse },
+                    set: { prefs.setAutoCopyLastResponse($0) }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Auto-copy last response")
+                            .font(.callout)
+                        Text("Automatically copies the AI response to your clipboard as soon as streaming completes.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text("System Prompt & Output Tokens")
                         .font(.callout)

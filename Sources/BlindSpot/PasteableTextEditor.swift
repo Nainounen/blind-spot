@@ -27,10 +27,19 @@ struct PasteableTextEditor: NSViewRepresentable {
         tv.isRichText = false
         tv.isAutomaticQuoteSubstitutionEnabled = false
         tv.isAutomaticLinkDetectionEnabled = false
-        tv.backgroundColor = .clear
         tv.drawsBackground = false
+        tv.backgroundColor = .clear
+        // usesAdaptiveColorMappingForDarkAppearance is the correct Apple API
+        // for NSTextViews with drawsBackground=false inside material/vibrancy
+        // containers. Without it, NSTextView can't resolve dynamic colors
+        // (textColor, insertion point) against the correct appearance context.
+        tv.usesAdaptiveColorMappingForDarkAppearance = true
         tv.textContainerInset = NSSize(width: 6, height: 6)
-        tv.typingAttributes = [.font: font, .foregroundColor: NSColor.labelColor]
+        // NSColor.textColor is the semantic color for editable text fields;
+        // .labelColor is for static labels and should not be used here.
+        tv.textColor = .textColor
+        tv.insertionPointColor = .textColor
+        tv.typingAttributes = textAttributes
         setAttributedText(tv, to: text)
 
         scrollView.documentView = tv
@@ -45,12 +54,16 @@ struct PasteableTextEditor: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let tv = scrollView.documentView as? NSTextView else { return }
         if tv.string != text { setAttributedText(tv, to: text) }
+        tv.typingAttributes = textAttributes
+    }
+
+    private var textAttributes: [NSAttributedString.Key: Any] {
+        [.font: font, .foregroundColor: NSColor.textColor]
     }
 
     private func setAttributedText(_ tv: NSTextView, to string: String) {
-        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.labelColor]
-        tv.textStorage?.setAttributedString(NSAttributedString(string: string, attributes: attrs))
-        tv.typingAttributes = attrs
+        tv.textStorage?.setAttributedString(NSAttributedString(string: string, attributes: textAttributes))
+        tv.typingAttributes = textAttributes
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
