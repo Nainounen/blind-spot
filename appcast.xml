@@ -1,0 +1,15 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>BlindSpot</title>
+        <item>
+            <title>1.0.9</title>
+            <pubDate>Tue, 16 Jun 2026 09:01:51 +0000</pubDate>
+            <link>https://github.com/Nainounen/blind-spot/releases</link>
+            <sparkle:version>1.0.9</sparkle:version>
+            <sparkle:shortVersionString>1.0.9</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://raw.githubusercontent.com/Nainounen/blind-spot/main/BlindSpot-1.0.9.dmg" length="3735795" type="application/octet-stream" sparkle:edSignature="NFPQYoFhjAyjV6mT/VUoMp+G0AJIT29yC9EkE6SPihld6eEwYWBQ93Ohzyx8DzOOuwXNEHL+iCx4y2g9o7z7BA=="/>
+        </item>
+    </channel>
+</rss>
