@@ -604,6 +604,7 @@ private struct ConversationArea: View {
     @Bindable var vm: CommandPanelViewModel
     var onFollowUp: (String) -> Void
     var onClose: () -> Void
+    @FocusState private var inputFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -655,21 +656,29 @@ private struct ConversationArea: View {
             // Follow-up bar
             HStack(alignment: .bottom, spacing: 10) {
                 ZStack(alignment: .topLeading) {
-                    PasteableTextEditor(
-                        text: $vm.followUpText,
-                        font: .systemFont(ofSize: NSFont.systemFontSize),
-                        minHeight: followUpHeight,
-                        onSubmit: submit,
-                        isFocused: $vm.focusInput
-                    )
-                    .frame(height: followUpHeight)
+                    TextEditor(text: $vm.followUpText)
+                        .font(.system(size: 13))
+                        .frame(height: followUpHeight)
+                        .scrollContentBackground(.hidden)
+                        .focused($inputFocused)
+                        .onKeyPress(keys: [.return], phases: .down) { press in
+                            if press.modifiers.contains(.shift) { return .ignored }
+                            submit()
+                            return .handled
+                        }
+                        .onChange(of: vm.focusInput) { _, newValue in
+                            if newValue {
+                                inputFocused = true
+                                vm.focusInput = false
+                            }
+                        }
 
                     if vm.followUpText.isEmpty {
                         Text(vm.turns.isEmpty ? "Ask anything…" : "Ask a follow-up…")
                             .font(.callout)
                             .foregroundStyle(.tertiary)
-                            .padding(.leading, 7)
-                            .padding(.top, 7)
+                            .padding(.leading, 5)
+                            .padding(.top, 8)
                             .allowsHitTesting(false)
                     }
                 }
