@@ -182,6 +182,8 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
             if event.keyCode == 53 { // ESC
+                // Let the sheet handle ESC when an alert/confirmationDialog is shown
+                if self.panel?.attachedSheet != nil { return event }
                 Task { @MainActor in self.hide() }
                 return nil
             }
@@ -205,6 +207,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         // Global monitor fires ESC even when another app is frontmost
         globalEscMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, event.keyCode == 53 else { return }
+            if self.panel?.attachedSheet != nil { return }
             Task { @MainActor in self.hide() }
         }
     }
