@@ -77,6 +77,12 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         startTurn(userText: text)
     }
 
+    func cancelStream() {
+        streamTask?.cancel()
+        streamTask = nil
+        vm.isLoading = false
+    }
+
     func selectConversation(_ conv: Conversation) {
         streamTask?.cancel()
         vm.loadConversation(conv)
@@ -201,6 +207,13 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
                 default: break
                 }
             }
+            // Ctrl+C cancels active stream
+            if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .control,
+               event.charactersIgnoringModifiers == "c",
+               self.vm.isLoading {
+                Task { @MainActor in self.cancelStream() }
+                return nil
+            }
             return event
         }
 
@@ -249,7 +262,8 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
                 onClose: { [weak self] in self?.hide() },
                 onFollowUp: { [weak self] text in self?.sendFollowUp(text) },
                 onSelectConversation: { [weak self] conv in self?.selectConversation(conv) },
-                onNewConversation: { [weak self] in self?.newConversation() }
+                onNewConversation: { [weak self] in self?.newConversation() },
+                onCancel: { [weak self] in self?.cancelStream() }
             )
         )
 
