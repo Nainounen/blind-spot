@@ -249,6 +249,7 @@ private struct ConversationRow: View {
     }
 }
 
+@MainActor
 private struct FolderSection: View {
     let folder: Folder
     let conversations: [Conversation]
@@ -332,6 +333,7 @@ private struct FolderSection: View {
     }
 }
 
+@MainActor
 private struct SidebarView: View {
     @Bindable var vm: CommandPanelViewModel
     let conversations: [Conversation]
@@ -595,6 +597,7 @@ private struct TurnView: View {
     }
 }
 
+@MainActor
 private struct ConversationArea: View {
     @Bindable var vm: CommandPanelViewModel
     var onFollowUp: (String) -> Void
