@@ -28,6 +28,9 @@ mkdir -p "$APP/Contents/Resources"
 cp "$BUILD_PATH/BlindSpot" "$APP/Contents/MacOS/BlindSpot"
 cp assets/BlindSpot.icns "$APP/Contents/Resources/BlindSpot.icns"
 
+# SPM resource bundle — Bundle.module looks for it at Bundle.main.bundleURL/BlindSpot_BlindSpot.bundle
+cp -R "$BUILD_PATH/BlindSpot_BlindSpot.bundle" "$APP/"
+
 # Bundle Sparkle.framework so the app can launch and check for updates.
 # The binary links against @rpath/Sparkle.framework with rpath set to
 # @executable_path/../lib, so framework goes in Contents/lib/.
