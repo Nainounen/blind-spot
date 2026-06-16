@@ -47,6 +47,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>NSAccessibilityUsageDescription</key>
   <string>BlindSpot reads your selected text to answer AI questions. It never accesses content you haven't selected.</string>
   <key>NSHumanReadableCopyright</key><string>MIT License</string>
+  <key>SUPublicEDKey</key>
+  <string>UP9yKSlzPYGk1OTENgKcPD3+vMETH70FbFHYYrTk9Yo=</string>
+  <key>SUFeedURL</key>
+  <string>https://raw.githubusercontent.com/Nainounen/blind-spot/main/appcast.xml</string>
 </dict>
 </plist>
 PLIST

@@ -26,6 +26,13 @@ final class PreferencesStore: ObservableObject {
     /// True when the most recent attempt to reach Ollama failed.
     @Published var ollamaUnreachable: Bool = false
 
+    /// Maximum tokens per response. Stored in UserDefaults "maxTokens". Default 4096.
+    @Published var maxTokens: Int
+
+    /// When true, the command panel closes automatically when it loses keyboard focus
+    /// (i.e. the user clicks in another app). Default false — panel stays open.
+    @Published var closeOnFocusLoss: Bool
+
     /// Global system prompt applied to every request when no named
     /// `BLIND_SPOT_PROMPT` is set. Persisted at
     /// ~/.config/blind-spot/system-prompt.txt.
@@ -52,6 +59,9 @@ final class PreferencesStore: ObservableObject {
         } else {
             panicHotkey = .defaultPanic
         }
+        let storedMax = UserDefaults.standard.integer(forKey: "maxTokens")
+        maxTokens = storedMax > 0 ? storedMax : 4096
+        closeOnFocusLoss = UserDefaults.standard.bool(forKey: "closeOnFocusLoss")
         systemPrompt = Self.loadSystemPromptFromDisk()
     }
 
@@ -128,6 +138,16 @@ final class PreferencesStore: ObservableObject {
     }
 
     func resetPanicHotkey() { setPanicHotkey(.defaultPanic) }
+
+    func setMaxTokens(_ tokens: Int) {
+        maxTokens = max(256, min(8192, tokens))
+        defaults.set(maxTokens, forKey: "maxTokens")
+    }
+
+    func setCloseOnFocusLoss(_ value: Bool) {
+        closeOnFocusLoss = value
+        defaults.set(value, forKey: "closeOnFocusLoss")
+    }
 
     // MARK: - Ollama
 

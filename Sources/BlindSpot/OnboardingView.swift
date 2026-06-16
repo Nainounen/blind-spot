@@ -31,7 +31,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
             w.delegate = self
             window = w
         }
-        NSApp.activate(ignoringOtherApps: true)
+        window?.orderFrontRegardless()
         window?.makeKeyAndOrderFront(nil)
     }
 
@@ -135,6 +135,20 @@ struct OnboardingView: View {
     }
 
     private func finish() {
+        // Update the Default profile with the chosen provider and model
+        let store = ProfilesStore.shared
+        if let idx = store.profiles.firstIndex(where: { $0.name == "Default" }) {
+            var updated = store.profiles[idx]
+            updated.provider = selectedProvider
+            updated.model = selectedProvider.defaultModel
+            store.update(updated)
+        } else {
+            store.create(AIProfile(
+                name: "Default",
+                provider: selectedProvider,
+                model: selectedProvider.defaultModel
+            ))
+        }
         PreferencesStore.shared.completeOnboarding()
         onComplete()
     }
@@ -292,8 +306,10 @@ private struct APIKeyStep: View {
                 }
                 .foregroundStyle(.secondary)
 
-                Link("Get a key at \(provider.keyURL) →", destination: URL(string: "https://\(provider.keyURL)")!)
-                    .font(.caption)
+                if let url = provider.signupURL {
+                    Link("Get a key →", destination: URL(string: url)!)
+                        .font(.caption)
+                }
             }
             .padding(.horizontal, 32)
 
@@ -350,7 +366,7 @@ private struct AccessibilityStep: View {
             Spacer()
 
             if !granted {
-                Text("You can skip this and grant access later in Settings.")
+                Text("You can also skip this and grant access later in Settings.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .padding(.bottom, 4)
@@ -404,6 +420,13 @@ private struct DoneStep: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 48)
                     .padding(.top, 4)
+
+                Text("A \"Default\" AI profile has been created for you. You can add more profiles (e.g., \"Fast\", \"Creative\") in Settings → Profiles.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 48)
+                    .padding(.top, 8)
             }
 
             Button("Start Using BlindSpot") { onComplete() }
@@ -470,34 +493,25 @@ private extension Step {
 private extension Provider {
     var icon: String {
         switch self {
-        case .openai:    return "sparkle"
-        case .anthropic: return "brain.head.profile"
-        case .gemini:    return "sparkles"
-        case .deepseek:  return "cpu"
-        case .grok:      return "bolt"
-        case .ollama:    return "laptopcomputer"
+        case .openai:     return "sparkle"
+        case .anthropic:  return "brain.head.profile"
+        case .gemini:     return "sparkles"
+        case .deepseek:   return "cpu"
+        case .grok:       return "bolt"
+        case .openrouter: return "arrow.triangle.branch"
+        case .ollama:     return "laptopcomputer"
         }
     }
 
     var cardDescription: String {
         switch self {
-        case .openai:    return "GPT-4o\nBest all-round\nNeeds API key"
-        case .anthropic: return "Claude\nGreat for reasoning\nNeeds API key"
-        case .gemini:    return "Gemini 2.5\nFast & cheap\nNeeds API key"
-        case .deepseek:  return "DeepSeek\nVery cheap\nNeeds API key"
-        case .grok:      return "Grok 3\nxAI model\nNeeds API key"
-        case .ollama:    return "Local models\nFree & private\nNo API key"
-        }
-    }
-
-    var keyURL: String {
-        switch self {
-        case .openai:    return "platform.openai.com/api-keys"
-        case .anthropic: return "console.anthropic.com/settings/keys"
-        case .gemini:    return "aistudio.google.com/app/apikey"
-        case .deepseek:  return "platform.deepseek.com/api_keys"
-        case .grok:      return "console.x.ai"
-        case .ollama:    return "ollama.com"
+        case .openai:     return "GPT-4o\nBest all-round\nNeeds API key"
+        case .anthropic:  return "Claude\nGreat for reasoning\nNeeds API key"
+        case .gemini:     return "Gemini 2.5\nFast & cheap\nNeeds API key"
+        case .deepseek:   return "DeepSeek\nVery cheap\nNeeds API key"
+        case .grok:       return "Grok 3\nxAI model\nNeeds API key"
+        case .openrouter: return "100+ models\nOne API key\nNeeds API key"
+        case .ollama:     return "Local models\nFree & private\nNo API key"
         }
     }
 }

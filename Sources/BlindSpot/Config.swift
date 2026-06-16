@@ -1,36 +1,63 @@
 import Foundation
 
-enum Provider: String, CaseIterable {
+enum Provider: String, CaseIterable, Codable {
     case openai
     case anthropic
     case gemini
     case deepseek
     case grok
+    case openrouter
     case ollama
 
     var displayName: String {
         switch self {
-        case .openai:    return "OpenAI"
-        case .anthropic: return "Anthropic"
-        case .gemini:    return "Gemini"
-        case .deepseek:  return "DeepSeek"
-        case .grok:      return "Grok"
-        case .ollama:    return "Ollama"
+        case .openai:     return "OpenAI"
+        case .anthropic:  return "Anthropic"
+        case .gemini:     return "Gemini"
+        case .deepseek:   return "DeepSeek"
+        case .grok:       return "Grok"
+        case .openrouter: return "OpenRouter"
+        case .ollama:     return "Ollama"
         }
     }
 
     var defaultModel: String {
         switch self {
-        case .openai:    return "gpt-4o"
-        case .anthropic: return "claude-sonnet-4-5"
-        case .gemini:    return "gemini-2.5-flash"
-        case .deepseek:  return "deepseek-chat"
-        case .grok:      return "grok-3"
-        case .ollama:    return "llama3.2"
+        case .openai:     return "gpt-4o"
+        case .anthropic:  return "claude-sonnet-4-5"
+        case .gemini:     return "gemini-2.5-flash"
+        case .deepseek:   return "deepseek-v4-flash"
+        case .grok:       return "grok-3"
+        case .openrouter: return "openai/gpt-4o"
+        case .ollama:     return "llama3.2"
         }
     }
 
     var requiresKey: Bool { self != .ollama }
+
+    var signupURL: String? {
+        switch self {
+        case .openai:     return "https://platform.openai.com/api-keys"
+        case .anthropic:  return "https://console.anthropic.com/settings/keys"
+        case .gemini:     return "https://aistudio.google.com/app/apikey"
+        case .deepseek:   return "https://platform.deepseek.com/api_keys"
+        case .grok:       return "https://console.x.ai"
+        case .openrouter: return "https://openrouter.ai/keys"
+        case .ollama:     return nil
+        }
+    }
+
+    var suggestedModels: [String] {
+        switch self {
+        case .openai:     return ["gpt-4o", "gpt-4o-mini", "o3", "o4-mini"]
+        case .anthropic:  return ["claude-sonnet-4-5", "claude-opus-4-8", "claude-haiku-4-5-20251001"]
+        case .gemini:     return ["gemini-2.5-flash", "gemini-2.5-pro"]
+        case .deepseek:   return ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-reasoner"]
+        case .grok:       return ["grok-3", "grok-3-mini"]
+        case .openrouter: return ["openai/gpt-4o", "anthropic/claude-sonnet-4-5", "deepseek/deepseek-v4-flash", "google/gemini-2.5-flash", "meta-llama/llama-3.1-8b-instruct:free"]
+        case .ollama:     return []
+        }
+    }
 }
 
 // Config reads UserDefaults and files directly — no actor isolation needed.
@@ -73,6 +100,7 @@ enum Config {
                 if let k = ProcessInfo.processInfo.environment[name], !k.isEmpty { return k }
             }
         }
+        if prov == .openrouter, let k = ProcessInfo.processInfo.environment["OPENROUTER_API_KEY"], !k.isEmpty { return k }
         // Per-provider key file (written by UI or run.sh)
         let keyFile = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".config/blind-spot/keys/\(prov.rawValue)")
@@ -90,7 +118,10 @@ enum Config {
 
     // MARK: - Misc
 
-    static let maxTokens = 1024
+    static var maxTokens: Int {
+        let stored = UserDefaults.standard.integer(forKey: "maxTokens")
+        return stored > 0 ? stored : 4096
+    }
 
     static var systemPrompt: String? {
         // 1. Named prompt selected via env var (overrides the global prompt)

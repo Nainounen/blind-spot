@@ -4,11 +4,17 @@ import AppKit
 final class MenuBarController {
     private var statusItem: NSStatusItem!
     private let onSettings: () -> Void
-    private let onShowHistory: (HistoryEntry) -> Void
+    private let onShowConversation: (Conversation) -> Void
+    private let onCheckForUpdates: () -> Void
 
-    init(onSettings: @escaping () -> Void, onShowHistory: @escaping (HistoryEntry) -> Void) {
+    init(
+        onSettings: @escaping () -> Void,
+        onShowConversation: @escaping (Conversation) -> Void,
+        onCheckForUpdates: @escaping () -> Void
+    ) {
         self.onSettings = onSettings
-        self.onShowHistory = onShowHistory
+        self.onShowConversation = onShowConversation
+        self.onCheckForUpdates = onCheckForUpdates
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let btn = statusItem.button {
@@ -18,15 +24,7 @@ final class MenuBarController {
         rebuildMenu()
 
         NotificationCenter.default.addObserver(
-            forName: .providerDidChange,
-            object: nil,
-            queue: .main
-        ) { _ in
-            Task { @MainActor [weak self] in self?.rebuildMenu() }
-        }
-
-        NotificationCenter.default.addObserver(
-            forName: .historyDidUpdate,
+            forName: .conversationsDidUpdate,
             object: nil,
             queue: .main
         ) { _ in
@@ -42,41 +40,47 @@ final class MenuBarController {
         menu.addItem(title)
         menu.addItem(.separator())
 
-        // Provider submenu
-        let provItem = NSMenuItem(
-            title: "Provider: \(PreferencesStore.shared.providerChoice.displayName)",
-            action: nil,
-            keyEquivalent: ""
-        )
-        let provMenu = NSMenu()
-        for p in Provider.allCases {
-            let item = NSMenuItem(
-                title: p.menuLabel,
-                action: #selector(selectProvider(_:)),
+        // Profiles submenu
+        let profiles = ProfilesStore.shared.profiles
+        let activeId = ProfilesStore.shared.activeProfileId
+        if !profiles.isEmpty {
+            let profileItem = NSMenuItem(
+                title: "Profile: \(ProfilesStore.shared.activeProfile.name)",
+                action: nil,
                 keyEquivalent: ""
             )
-            item.representedObject = p.rawValue
-            item.target = self
-            item.state = p == PreferencesStore.shared.providerChoice ? .on : .off
-            provMenu.addItem(item)
-        }
-        provItem.submenu = provMenu
-        menu.addItem(provItem)
-
-        // Recent submenu
-        let entries = HistoryStore.shared.entries.prefix(5)
-        if !entries.isEmpty {
-            let recentItem = NSMenuItem(title: "Recent", action: nil, keyEquivalent: "")
-            let recentMenu = NSMenu()
-            for entry in entries {
-                let label = String(entry.query.prefix(40)) + (entry.query.count > 40 ? "…" : "")
+            let profileMenu = NSMenu()
+            for profile in profiles {
                 let item = NSMenuItem(
-                    title: label,
-                    action: #selector(selectHistory(_:)),
+                    title: profile.name,
+                    action: #selector(selectProfile(_:)),
                     keyEquivalent: ""
                 )
-                item.representedObject = entry.id.uuidString
-                item.toolTip = entry.query
+                item.representedObject = profile.id.uuidString
+                item.target = self
+                item.state = profile.id == activeId ? .on : .off
+                profileMenu.addItem(item)
+            }
+            profileItem.submenu = profileMenu
+            menu.addItem(profileItem)
+        }
+
+        // Recent conversations submenu
+        let convs = ConversationStore.shared.conversations.prefix(5)
+        if !convs.isEmpty {
+            let recentItem = NSMenuItem(title: "Recent", action: nil, keyEquivalent: "")
+            let recentMenu = NSMenu()
+            for conv in convs {
+                let label: String = {
+                    let t = conv.title.isEmpty ? "Untitled" : conv.title
+                    return String(t.prefix(40)) + (t.count > 40 ? "…" : "")
+                }()
+                let item = NSMenuItem(
+                    title: label,
+                    action: #selector(selectConversation(_:)),
+                    keyEquivalent: ""
+                )
+                item.representedObject = conv.id.uuidString
                 item.target = self
                 recentMenu.addItem(item)
             }
@@ -90,6 +94,10 @@ final class MenuBarController {
         settings.target = self
         menu.addItem(settings)
 
+        let updates = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        updates.target = self
+        menu.addItem(updates)
+
         menu.addItem(.separator())
 
         menu.addItem(NSMenuItem(
@@ -101,36 +109,28 @@ final class MenuBarController {
         statusItem.menu = menu
     }
 
-    @objc private func selectProvider(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String,
-              let p = Provider(rawValue: raw) else { return }
-        PreferencesStore.shared.setProvider(p)
-        NotificationCenter.default.post(name: .providerDidChange, object: nil)
+    @objc private func selectProfile(_ sender: NSMenuItem) {
+        guard let idStr = sender.representedObject as? String,
+              let id = UUID(uuidString: idStr)
+        else { return }
+        ProfilesStore.shared.activate(id)
+        rebuildMenu()
     }
 
-    @objc private func selectHistory(_ sender: NSMenuItem) {
+    @objc private func selectConversation(_ sender: NSMenuItem) {
         guard let idStr = sender.representedObject as? String,
               let id = UUID(uuidString: idStr),
-              let entry = HistoryStore.shared.entries.first(where: { $0.id == id })
+              let conv = ConversationStore.shared.conversation(id: id)
         else { return }
-        onShowHistory(entry)
+        onShowConversation(conv)
     }
 
     @objc private func openSettings() {
         onSettings()
     }
-}
 
-private extension Provider {
-    var menuLabel: String {
-        switch self {
-        case .openai:    return "OpenAI  (gpt-4o)"
-        case .anthropic: return "Anthropic  (claude-sonnet-4-5)"
-        case .gemini:    return "Gemini  (gemini-2.5-flash)"
-        case .deepseek:  return "DeepSeek  (deepseek-chat)"
-        case .grok:      return "Grok  (grok-3)"
-        case .ollama:    return "Ollama  (local)"
-        }
+    @objc private func checkForUpdates() {
+        onCheckForUpdates()
     }
 }
 
