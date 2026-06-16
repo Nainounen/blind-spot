@@ -243,7 +243,8 @@ private struct ConversationRow: View {
             Button("Delete", role: .destructive) { showDeleteConfirm = true }
         }
         .confirmationDialog("Delete this conversation?", isPresented: $showDeleteConfirm) {
-            Button("Delete", role: .destructive) { onDelete() }
+            // No .destructive role so macOS makes this the default button (Enter triggers it)
+            Button("Delete") { onDelete() }
             Button("Cancel", role: .cancel) {}
         }
     }
@@ -604,8 +605,6 @@ private struct ConversationArea: View {
     var onFollowUp: (String) -> Void
     var onClose: () -> Void
 
-    @FocusState private var inputFocused: Bool
-
     var body: some View {
         VStack(spacing: 0) {
             // Conversation scroll
@@ -654,18 +653,29 @@ private struct ConversationArea: View {
             Divider()
 
             // Follow-up bar
-            HStack(spacing: 10) {
-                TextField(
-                    vm.turns.isEmpty ? "Ask anything…" : "Ask a follow-up…",
-                    text: $vm.followUpText
-                )
-                .textFieldStyle(.plain)
-                .font(.callout)
-                .focused($inputFocused)
-                .onSubmit { submit() }
+            HStack(alignment: .bottom, spacing: 10) {
+                ZStack(alignment: .topLeading) {
+                    PasteableTextEditor(
+                        text: $vm.followUpText,
+                        font: .systemFont(ofSize: NSFont.systemFontSize),
+                        minHeight: followUpHeight,
+                        onSubmit: submit,
+                        isFocused: $vm.focusInput
+                    )
+                    .frame(height: followUpHeight)
+
+                    if vm.followUpText.isEmpty {
+                        Text(vm.turns.isEmpty ? "Ask anything…" : "Ask a follow-up…")
+                            .font(.callout)
+                            .foregroundStyle(.tertiary)
+                            .padding(.leading, 7)
+                            .padding(.top, 7)
+                            .allowsHitTesting(false)
+                    }
+                }
 
                 if vm.isLoading {
-                    ProgressView().scaleEffect(0.75)
+                    ProgressView().scaleEffect(0.75).padding(.bottom, 6)
                 } else {
                     Button(action: submit) {
                         Image(systemName: "arrow.up.circle.fill")
@@ -677,17 +687,18 @@ private struct ConversationArea: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(vm.followUpText.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .padding(.bottom, 4)
                 }
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.vertical, 8)
         }
-        .onChange(of: vm.focusInput) { _, newVal in
-            if newVal {
-                inputFocused = true
-                vm.focusInput = false
-            }
-        }
+    }
+
+    private var followUpHeight: CGFloat {
+        let lines = vm.followUpText.components(separatedBy: "\n").count
+        let lineH: CGFloat = 19
+        return min(CGFloat(lines) * lineH + 14, 5 * lineH + 14)
     }
 
     private var emptyState: some View {

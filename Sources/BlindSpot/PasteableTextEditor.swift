@@ -10,6 +10,8 @@ struct PasteableTextEditor: NSViewRepresentable {
     @Binding var text: String
     var font: NSFont = .monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
     var minHeight: CGFloat = 110
+    var onSubmit: (() -> Void)? = nil
+    var isFocused: Binding<Bool>? = nil
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
@@ -22,6 +24,7 @@ struct PasteableTextEditor: NSViewRepresentable {
 
         let tv = EditingTextView()
         tv.delegate = context.coordinator
+        tv.onSubmit = onSubmit
         tv.isEditable = true
         tv.isSelectable = true
         tv.isRichText = false
@@ -45,9 +48,16 @@ struct PasteableTextEditor: NSViewRepresentable {
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        guard let tv = scrollView.documentView as? NSTextView else { return }
+        guard let tv = scrollView.documentView as? EditingTextView else { return }
         if tv.string != text { setAttributedText(tv, to: text) }
         tv.typingAttributes = textAttributes
+        tv.onSubmit = onSubmit
+        if let binding = isFocused, binding.wrappedValue {
+            DispatchQueue.main.async {
+                tv.window?.makeFirstResponder(tv)
+                binding.wrappedValue = false
+            }
+        }
     }
 
     private var textAttributes: [NSAttributedString.Key: Any] {
@@ -73,6 +83,22 @@ struct PasteableTextEditor: NSViewRepresentable {
 }
 
 private final class EditingTextView: NSTextView {
+    var onSubmit: (() -> Void)?
+
+    override func keyDown(with event: NSEvent) {
+        guard event.keyCode == 36 || event.keyCode == 76 else { // Return or numpad Enter
+            super.keyDown(with: event)
+            return
+        }
+        if event.modifierFlags.contains(.shift) {
+            super.keyDown(with: event) // Shift+Enter → newline
+        } else if let submit = onSubmit {
+            submit()
+        } else {
+            super.keyDown(with: event)
+        }
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         refreshTextColors()
