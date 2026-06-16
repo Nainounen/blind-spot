@@ -73,13 +73,21 @@ enum AIService {
         for (header, value) in extraHeaders {
             req.setValue(value, forHTTPHeaderField: header)
         }
-        req.httpBody = try JSONSerialization.data(withJSONObject: [
+        var body: [String: Any] = [
             "model": profile.model,
             "max_tokens": profile.maxOutputTokens,
-            "temperature": profile.temperature,
             "stream": true,
             "messages": apiMessages,
-        ])
+        ]
+        if profile.thinkingEnabled {
+            body["reasoning_effort"] = profile.reasoningEffort.rawValue
+            if profile.provider == .deepseek {
+                body["thinking"] = ["type": "enabled"]
+            }
+        } else {
+            body["temperature"] = profile.temperature
+        }
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (stream, response) = try await URLSession.shared.bytes(for: req)
         try validateHTTP(response)
@@ -134,6 +142,9 @@ enum AIService {
             "messages": apiMessages,
         ]
         if let s = systemText { body["system"] = s }
+        if profile.thinkingEnabled {
+            body["thinking"] = ["type": "adaptive", "effort": profile.reasoningEffort.rawValue]
+        }
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (stream, response) = try await URLSession.shared.bytes(for: req)
