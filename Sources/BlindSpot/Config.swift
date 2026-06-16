@@ -47,6 +47,22 @@ enum Provider: String, CaseIterable, Codable {
         }
     }
 
+    /// Asset catalog image name for the provider logo SVG.
+    var logoImageName: String { "provider-\(rawValue)" }
+
+    /// SF Symbol used as a fallback when the real logo SVG hasn't been added yet.
+    var fallbackIcon: String {
+        switch self {
+        case .openai:     return "sparkle"
+        case .anthropic:  return "brain.head.profile"
+        case .gemini:     return "sparkles"
+        case .deepseek:   return "cpu"
+        case .grok:       return "bolt"
+        case .openrouter: return "arrow.triangle.branch"
+        case .ollama:     return "laptopcomputer"
+        }
+    }
+
     var suggestedModels: [String] {
         switch self {
         case .openai:     return ["gpt-4o", "gpt-4o-mini", "o3", "o4-mini"]

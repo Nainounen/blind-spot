@@ -11,7 +11,8 @@ let package = Package(
         .executableTarget(
             name: "BlindSpot",
             dependencies: ["Sparkle"],
-            path: "Sources/BlindSpot"
+            path: "Sources/BlindSpot",
+            resources: [.process("Resources")]
         )
     ]
 )
