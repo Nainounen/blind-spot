@@ -73,8 +73,17 @@ struct PasteableTextEditor: NSViewRepresentable {
 }
 
 private final class EditingTextView: NSTextView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        refreshTextColors()
+    }
+
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
+        refreshTextColors()
+    }
+
+    private func refreshTextColors() {
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font ?? NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular),
             .foregroundColor: NSColor.textColor,
@@ -82,6 +91,7 @@ private final class EditingTextView: NSTextView {
         textStorage?.addAttributes(attrs, range: NSRange(location: 0, length: textStorage?.length ?? 0))
         typingAttributes = attrs
         insertionPointColor = .textColor
+        needsDisplay = true
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {

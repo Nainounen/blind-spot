@@ -102,7 +102,7 @@ Trigger and panic shortcuts are configurable in Settings → Hotkeys.
 | OpenAI | GPT-4o | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
 | Anthropic | Claude Sonnet | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
 | Google Gemini | Gemini 2.5 Flash | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) |
-| DeepSeek | DeepSeek Chat | [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys) |
+| DeepSeek | deepseek-v4-flash | [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys) |
 | xAI Grok | Grok 3 | [console.x.ai](https://console.x.ai) |
 | OpenRouter | GPT-4o (via OR) | [openrouter.ai/keys](https://openrouter.ai/keys) |
 | Ollama | Llama 3.2 | No key — runs entirely on your Mac |
@@ -116,7 +116,17 @@ Trigger and panic shortcuts are configurable in Settings → Hotkeys.
 - The overlay is excluded from screen capture via `NSWindowSharingNone` at the compositor level — it does not appear in screenshots, ScreenCaptureKit recordings, or video calls (Zoom, Teams, Meet, etc.)
 - No Dock icon. No analytics. No data collection.
 
-**Limitation:** The overlay is not protected against `CGDisplayCreateImage` or Accessibility API captures from apps that already hold Screen Recording permission. A physical camera pointed at your screen is also unaffected.
+### Where data is stored
+
+| Path | Contents |
+|---|---|
+| `~/.config/blind-spot/keys/<provider>` | API key for each provider (mode 0600) |
+| `~/.config/blind-spot/profiles.json` | AI profiles — provider, model, system prompt, temperature, token limit |
+| `~/.config/blind-spot/conversations/` | Conversation history (JSON, one file per conversation) |
+| `~/.config/blind-spot/system-prompt.txt` | Legacy global system prompt (migrated to profiles on first run) |
+| `~/Library/Preferences/com.blind-spot.app.plist` | App preferences — active profile, hotkeys, toggles |
+
+All data stays on your Mac. Nothing is synced or uploaded.
 
 ---
 
