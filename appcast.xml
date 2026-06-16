@@ -3,13 +3,13 @@
     <channel>
         <title>BlindSpot</title>
         <item>
-            <title>2.0.2</title>
-            <pubDate>Tue, 16 Jun 2026 12:49:05 +0000</pubDate>
+            <title>2.0.3</title>
+            <pubDate>Tue, 16 Jun 2026 13:15:25 +0000</pubDate>
             <link>https://github.com/Nainounen/blind-spot/releases</link>
-            <sparkle:version>2.0.2</sparkle:version>
-            <sparkle:shortVersionString>2.0.2</sparkle:shortVersionString>
+            <sparkle:version>2.0.3</sparkle:version>
+            <sparkle:shortVersionString>2.0.3</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/Nainounen/blind-spot/releases/download/v2.0.2/BlindSpot-2.0.2.dmg" length="3792854" type="application/octet-stream" sparkle:edSignature="0fiwbU0QyKPuEj67fdJCd6HhvB7H9Ke2UBJioGKwLxpVDyt4O/Z2Wh9CDq/hAYju38pZupJnzkHCGQQHOQnxBw=="/>
+            <enclosure url="https://github.com/Nainounen/blind-spot/releases/download/v2.0.3/BlindSpot-2.0.3.dmg" length="3890020" type="application/octet-stream" sparkle:edSignature="8p3GaKztKiOBddgKMe6HZOFCHvP1IhEmOB+FmDj09darDe9W7sx/vEDyY9qlUzDG5rEmCkdoWcbupEHUFXYbDQ=="/>
         </item>
     </channel>
 </rss>
