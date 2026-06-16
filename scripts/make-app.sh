@@ -28,8 +28,9 @@ mkdir -p "$APP/Contents/Resources"
 cp "$BUILD_PATH/BlindSpot" "$APP/Contents/MacOS/BlindSpot"
 cp assets/BlindSpot.icns "$APP/Contents/Resources/BlindSpot.icns"
 
-# SPM resource bundle — Bundle.module looks for it at Bundle.main.bundleURL/BlindSpot_BlindSpot.bundle
-cp -R "$BUILD_PATH/BlindSpot_BlindSpot.bundle" "$APP/"
+# SPM resource bundle — lives inside Contents/Resources so codesign covers it.
+# ProviderIcon uses Bundle.resourcesBundle which checks resourceURL first.
+cp -R "$BUILD_PATH/BlindSpot_BlindSpot.bundle" "$APP/Contents/Resources/"
 
 # Bundle Sparkle.framework so the app can launch and check for updates.
 # The binary links against @rpath/Sparkle.framework with rpath set to
@@ -67,7 +68,11 @@ PLIST
 # Ad-hoc sign the bundle so macOS treats it as a coherent code-signed unit.
 # This must happen AFTER Info.plist is written, since codesign covers it.
 # (Real Developer ID signing would happen later if an Apple cert is added.)
-codesign --force --deep --sign - "$APP" 2>/dev/null || true
+if codesign --force --deep --sign - "$APP" 2>&1; then
+    echo "  ✓ Ad-hoc signed $APP"
+else
+    echo "  ⚠ codesign failed — Sparkle updates may reject this build" >&2
+fi
 
 echo ""
 echo "✓ Built: $(pwd)/$APP"
