@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/license-MIT-111111?style=flat-square" alt="License">
 </p>
 
-Select any text, press **⌘⇧Space**, and an answer streams back in a floating overlay that no screenshot tool or screen recording can capture.
+Select any text, press **⌘⇧Space**, and an answer streams back in a floating overlay that no screenshot tool or screen recording can capture. Press **⌘⇧⌥Space** to include a screenshot for visual context.
 
 ---
 
@@ -38,7 +38,8 @@ On first launch, BlindSpot walks you through three steps:
 
 1. **Choose a provider** — OpenAI, Anthropic, Gemini, DeepSeek, Grok, OpenRouter, or Ollama (local, no key needed)
 2. **Paste your API key** — saved on your Mac only, never sent anywhere except your chosen provider
-3. **Allow Accessibility access** — required to read selected text and listen for the hotkey
+3. **Allow Accessibility access** — required to read selected text and listen for hotkeys
+4. **Allow Screen Recording** — needed for visual context screenshot (⌘⇧⌥Space), prompted on first use
 
 Once done, the **✦** icon appears in your menu bar.
 
@@ -94,13 +95,27 @@ The "Close panel when clicking outside" setting now works correctly.
 
 | Shortcut | Action |
 |---|---|
-| ⌘⇧Space | Open the panel / query selected text |
+| ⌘⇧Space | Ask about selected text |
+| ⌘⇧⌥Space | Ask with visual context — captures a screenshot around the selection |
 | ⌘N | New conversation |
 | ⌘K | Focus search |
+| ⌘W | Close the panel |
 | ESC | Close the panel |
 | ⌘⌥Q | Force-quit |
 
-Trigger and panic shortcuts are configurable in Settings → Hotkeys.
+All shortcuts except panic quit are configurable in Settings → Hotkeys.
+
+---
+
+## Visual Context
+
+Press **⌘⇧⌥Space** to include a screenshot of the area around your selected text. The AI sees the visual context — UI, diagrams, code layout, tables — alongside the text.
+
+- Captures a padded region around the selection using ScreenCaptureKit
+- Works with any vision-capable provider (Gemini, GPT-4o, Claude, Grok)
+- Each profile can optionally route vision requests through a **different provider or model** — for example, text via DeepSeek and vision via Gemini
+- Padding and minimum capture size are configurable in Settings → Preferences
+- A minimap preview shows how much of your screen the capture covers
 
 ---
 
@@ -123,6 +138,7 @@ Trigger and panic shortcuts are configurable in Settings → Hotkeys.
 - API keys are stored at `~/.config/blind-spot/keys/` and sent only to your chosen provider
 - Selected text goes to your provider's API; their privacy policy applies
 - The overlay is excluded from screen capture via `NSWindowSharingNone` at the compositor level — it does not appear in screenshots, ScreenCaptureKit recordings, or video calls (Zoom, Teams, Meet, etc.)
+- Screen Recording permission is requested only when using visual context (⌘⇧⌥Space) to capture the area around your selection
 - No Dock icon. No analytics. No data collection.
 
 ### Where data is stored
