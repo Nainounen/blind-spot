@@ -442,14 +442,24 @@ struct SettingsView: View {
         let minW = prefs.screenshotMinWidth
         let minH = prefs.screenshotMinHeight
 
-        // Typical single-line text selection: ~300px wide, ~20px tall
-        let typicalW = max(300 + 2 * pad, minW)
-        let typicalH = max(20 + 2 * pad, minH)
+        // Typical text selection: ~300px wide, ~20px tall (one line)
+        let selW: CGFloat = 300
+        let selH: CGFloat = 20
+        let capW = max(selW + 2 * pad, minW)
+        let capH = max(selH + 2 * pad, minH)
 
-        let pctW = Int(typicalW / screenW * 100)
-        let pctH = Int(typicalH / screenH * 100)
+        // Scale everything to fit a ~260×160 mini-map
+        let mapMaxW: CGFloat = 260
+        let mapMaxH: CGFloat = 160
+        let scale = min(mapMaxW / screenW, mapMaxH / screenH)
+        let mapSW = screenW * scale
+        let mapSH = screenH * scale
+        let mapSelW = max(selW * scale, 3)
+        let mapSelH = max(selH * scale, 2)
+        let mapCapW = max(capW * scale, 6)
+        let mapCapH = max(capH * scale, 4)
 
-        // Figure out the Mac model from screen resolution
+        // Figure out Mac model from screen resolution (points)
         let modelName: String = {
             let w = Int(screenW), h = Int(screenH)
             switch (w, h) {
@@ -461,43 +471,54 @@ struct SettingsView: View {
             }
         }()
 
-        // Scale the preview bar — fit inside ~280px max
-        let barMaxWidth: CGFloat = 280
-        let barW = min(barMaxWidth, barMaxWidth * typicalW / screenW)
-        let barH: CGFloat = 16
+        let pctW = Int(capW / screenW * 100)
+        let pctH = Int(capH / screenH * 100)
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Preview on your \(modelName)")
+                Text("Capture preview on \(modelName)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("~\(Int(typicalW))×\(Int(typicalH)) px (\(pctW)%×\(pctH)%)")
+                Text("~\(Int(capW))×\(Int(capH)) px (\(pctW)%×\(pctH)%)")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
 
-            // Visual bar: screen width reference
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(Color.secondary.opacity(0.15))
-                    .frame(width: barMaxWidth, height: barH)
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(Color.accentColor.opacity(0.5))
-                    .frame(width: barW, height: barH)
-                    .overlay(
-                        Text("capture")
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(.white)
-                            .opacity(barW > 60 ? 1 : 0)
-                    )
-            }
+            // Mini-map: screen rectangle with selection and capture overlay
+            ZStack {
+                // Screen
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
+                    .frame(width: mapSW, height: mapSH)
 
-            Text("A typical line of selected text captures roughly this portion of your screen. On larger displays (like an external monitor), the relative footprint is smaller.")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                // Capture area (blue, centred — appears larger around the selection)
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.accentColor.opacity(0.35))
+                    .frame(width: mapCapW, height: mapCapH)
+
+                // Selected text (dark outline, centred — sits on top of the capture area)
+                RoundedRectangle(cornerRadius: 1)
+                    .strokeBorder(Color.primary.opacity(0.6), lineWidth: 1)
+                    .background(Color.primary.opacity(0.25))
+                    .frame(width: mapSelW, height: mapSelH)
+            }
+            .frame(width: mapSW, height: mapSH)
+            .frame(maxWidth: .infinity)
+
+            // Legend
+            HStack(spacing: 16) {
+                HStack(spacing: 4) {
+                    RoundedRectangle(cornerRadius: 1).fill(Color.primary.opacity(0.35)).frame(width: 10, height: 5)
+                    Text("Selection").font(.caption2).foregroundStyle(.secondary)
+                }
+                HStack(spacing: 4) {
+                    RoundedRectangle(cornerRadius: 1).fill(Color.accentColor.opacity(0.45)).frame(width: 10, height: 5)
+                    Text("Capture").font(.caption2).foregroundStyle(.secondary)
+                }
+            }
         }
-        .padding(10)
+        .padding(12)
         .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 8))
     }
 
