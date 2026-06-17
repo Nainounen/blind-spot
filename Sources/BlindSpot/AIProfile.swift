@@ -18,6 +18,7 @@ struct AIProfile: Identifiable, Equatable {
     var name: String
     var provider: Provider
     var model: String
+    var visionModel: String?
     var systemPrompt: String
     var maxOutputTokens: Int
     var temperature: Double
@@ -30,6 +31,7 @@ struct AIProfile: Identifiable, Equatable {
         name: String,
         provider: Provider,
         model: String = "",
+        visionModel: String? = nil,
         systemPrompt: String = "",
         maxOutputTokens: Int = 4096,
         temperature: Double = 1.0,
@@ -41,6 +43,7 @@ struct AIProfile: Identifiable, Equatable {
         self.name = name
         self.provider = provider
         self.model = model.isEmpty ? provider.defaultModel : model
+        self.visionModel = visionModel
         self.systemPrompt = systemPrompt
         self.maxOutputTokens = maxOutputTokens
         self.temperature = temperature

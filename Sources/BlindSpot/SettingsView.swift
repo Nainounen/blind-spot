@@ -363,6 +363,68 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 .padding(.top, 4)
+
+                Divider()
+
+                // Screenshot capture size
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Screenshot Padding")
+                                .font(.callout)
+                            Spacer()
+                            Text("\(Int(prefs.screenshotPadding))px")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { prefs.screenshotPadding },
+                                set: { prefs.setScreenshotPadding($0) }
+                            ),
+                            in: 80...800, step: 20
+                        )
+                        Text("How far beyond the selected text to expand the capture area on each side.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Minimum Capture Size")
+                                .font(.callout)
+                            Spacer()
+                            Text("\(Int(prefs.screenshotMinWidth))×\(Int(prefs.screenshotMinHeight))")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Width").font(.caption2).foregroundStyle(.tertiary)
+                                Slider(
+                                    value: Binding(
+                                        get: { prefs.screenshotMinWidth },
+                                        set: { prefs.setScreenshotMinSize(width: $0, height: prefs.screenshotMinHeight) }
+                                    ),
+                                    in: 100...2000, step: 40
+                                )
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Height").font(.caption2).foregroundStyle(.tertiary)
+                                Slider(
+                                    value: Binding(
+                                        get: { prefs.screenshotMinHeight },
+                                        set: { prefs.setScreenshotMinSize(width: prefs.screenshotMinWidth, height: $0) }
+                                    ),
+                                    in: 100...2000, step: 40
+                                )
+                            }
+                        }
+                        Text("Ensures a minimum screenshot size even when selecting a small region.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
     }
@@ -901,6 +963,25 @@ private struct ProfileEditorView: View {
                     if !ollamaModels.isEmpty && !ollamaModels.contains(where: { $0.name == draft.model }) {
                         draft.model = ollamaModels[0].name
                         isDirty = true
+                    }
+                }
+
+                // Vision model (only shown when provider supports images)
+                if draft.provider.supportsVision {
+                    VStack(alignment: .leading, spacing: 5) {
+                        fieldLabel("Vision Model")
+                        TextField("Same as text model (leave empty)", text: Binding(
+                            get: { draft.visionModel ?? "" },
+                            set: { v in
+                                draft.visionModel = v.isEmpty ? nil : v
+                                isDirty = true
+                            }
+                        ))
+                        .textFieldStyle(.plain)
+                        .glassField()
+                        Text("Override model for visual context requests (⌘⇧⌥Space). Leave empty to use the same model as text.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
 

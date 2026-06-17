@@ -11,15 +11,15 @@ enum ScreenshotCapture {
 
     /// Captures a padded region around `rect` (CG screen coordinates) as PNG data.
     /// Returns nil if screen recording permission is not granted or capture fails.
+    /// Padding and minimum size are read from PreferencesStore so the user can
+    /// tune how much context the AI sees.
     static func captureRegion(_ rect: CGRect) async -> Data? {
-        // Expand selection rect generously — 300px padding on each side gives
-        // enough context for the AI to see surrounding UI, code, or layout.
-        let padded = rect.insetBy(dx: -300, dy: -300)
+        let prefs = await MainActor.run { PreferencesStore.shared }
+        let pad = await MainActor.run { prefs.screenshotPadding }
+        let padded = rect.insetBy(dx: -pad, dy: -pad)
 
-        // Enforce a minimum capture size so even tiny selections (or the mouse
-        // fallback) produce a useful screenshot.
-        let minWidth: CGFloat  = 640
-        let minHeight: CGFloat = 400
+        let minWidth  = await MainActor.run { prefs.screenshotMinWidth }
+        let minHeight = await MainActor.run { prefs.screenshotMinHeight }
         let finalRect = CGRect(
             x:      padded.minX,
             y:      padded.minY,

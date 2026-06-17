@@ -106,6 +106,16 @@ final class PreferencesStore: ObservableObject {
     /// on next open instead of centering on screen.
     @Published var savePanelPosition: Bool
 
+    /// Padding (in points) added to each side of the selected text bounds when
+    /// capturing a visual context screenshot. Default 300. Minimum 80.
+    @Published var screenshotPadding: CGFloat
+
+    /// Minimum width of the visual context screenshot. Default 640.
+    @Published var screenshotMinWidth: CGFloat
+
+    /// Minimum height of the visual context screenshot. Default 400.
+    @Published var screenshotMinHeight: CGFloat
+
     /// Global system prompt applied to every request when no named
     /// `BLIND_SPOT_PROMPT` is set. Persisted at
     /// ~/.config/blind-spot/system-prompt.txt.
@@ -156,6 +166,12 @@ final class PreferencesStore: ObservableObject {
         autoCopyLastResponse = UserDefaults.standard.bool(forKey: "autoCopyLastResponse")
         panelSizePreset = PanelSizePreset(rawValue: UserDefaults.standard.string(forKey: "panelSizePreset") ?? "") ?? .medium
         savePanelPosition = UserDefaults.standard.bool(forKey: "savePanelPosition")
+        let storedPadding = UserDefaults.standard.double(forKey: "screenshotPadding")
+        screenshotPadding = storedPadding > 0 ? storedPadding : 300
+        let storedMinW = UserDefaults.standard.double(forKey: "screenshotMinWidth")
+        screenshotMinWidth = storedMinW > 0 ? storedMinW : 640
+        let storedMinH = UserDefaults.standard.double(forKey: "screenshotMinHeight")
+        screenshotMinHeight = storedMinH > 0 ? storedMinH : 400
         systemPrompt = Self.loadSystemPromptFromDisk()
     }
 
@@ -286,6 +302,18 @@ final class PreferencesStore: ObservableObject {
         if !value {
             clearSavedPanelCenter()
         }
+    }
+
+    func setScreenshotPadding(_ value: CGFloat) {
+        screenshotPadding = max(80, min(800, value))
+        defaults.set(screenshotPadding, forKey: "screenshotPadding")
+    }
+
+    func setScreenshotMinSize(width: CGFloat, height: CGFloat) {
+        screenshotMinWidth = max(100, min(2000, width))
+        screenshotMinHeight = max(100, min(2000, height))
+        defaults.set(screenshotMinWidth, forKey: "screenshotMinWidth")
+        defaults.set(screenshotMinHeight, forKey: "screenshotMinHeight")
     }
 
     // MARK: - Panel position persistence

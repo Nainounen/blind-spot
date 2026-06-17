@@ -68,6 +68,9 @@ enum AIService {
             ["role": $0.role.rawValue, "content": openAIContent(for: $0)]
         }
 
+        let hasImages = messages.contains { $0.image != nil }
+        let effectiveModel = hasImages ? (profile.visionModel ?? profile.model) : profile.model
+
         var req = URLRequest(url: URL(string: endpoint)!)
         req.httpMethod = "POST"
         req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
@@ -76,12 +79,11 @@ enum AIService {
             req.setValue(value, forHTTPHeaderField: header)
         }
         var body: [String: Any] = [
-            "model": profile.model,
+            "model": effectiveModel,
             "max_tokens": profile.maxOutputTokens,
             "stream": true,
             "messages": apiMessages,
         ]
-        let hasImages = messages.contains { $0.image != nil }
         if profile.thinkingEnabled && !hasImages {
             body["reasoning_effort"] = profile.reasoningEffort.rawValue
             if profile.provider == .deepseek {
@@ -138,14 +140,16 @@ enum AIService {
             .filter { $0.role != .system }
             .map { ["role": $0.role.rawValue, "content": anthropicContent(for: $0)] }
 
+        let hasImages = messages.contains { $0.image != nil }
+        let effectiveModel = hasImages ? (profile.visionModel ?? profile.model) : profile.model
+
         var body: [String: Any] = [
-            "model": profile.model,
+            "model": effectiveModel,
             "max_tokens": profile.maxOutputTokens,
             "stream": true,
             "messages": apiMessages,
         ]
         if let s = systemText { body["system"] = s }
-        let hasImages = messages.contains { $0.image != nil }
         if profile.thinkingEnabled && !hasImages {
             body["thinking"] = ["type": "adaptive", "effort": profile.reasoningEffort.rawValue]
         }
@@ -186,7 +190,10 @@ enum AIService {
         let key = apiKey(for: .gemini)
         guard !key.isEmpty else { throw Error.missingAPIKey(.gemini) }
 
-        guard let escapedModel = profile.model.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+        let hasImages = messages.contains { $0.image != nil }
+        let effectiveModel = hasImages ? (profile.visionModel ?? profile.model) : profile.model
+
+        guard let escapedModel = effectiveModel.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
               let escapedKey   = key.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(escapedModel):streamGenerateContent?alt=sse&key=\(escapedKey)")
         else { throw Error.emptyResponse }
