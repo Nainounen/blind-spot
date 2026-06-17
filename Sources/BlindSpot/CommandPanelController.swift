@@ -33,7 +33,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
     func show(query: String?) {
         previousApp = NSWorkspace.shared.frontmostApplication
         buildPanelIfNeeded()
-        resizePanel(animated: false)
+        resizePanel(animated: false, reposition: true)
 
         let profile = ProfilesStore.shared.activeProfile
         vm.startNewConversation(profileId: profile.id)
@@ -56,7 +56,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
     func show(conversation: Conversation) {
         previousApp = NSWorkspace.shared.frontmostApplication
         buildPanelIfNeeded()
-        resizePanel(animated: false)
+        resizePanel(animated: false, reposition: true)
         vm.loadConversation(conversation)
         panel?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -87,14 +87,25 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
 
     /// Resize the panel to match the current size preset and conversation state.
     /// For XS, the panel expands when there is content and collapses when empty.
-    func resizePanel(animated: Bool) {
+    func resizePanel(animated: Bool, reposition: Bool = false) {
         guard let panel, let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         let preset = PreferencesStore.shared.panelSizePreset
+        let prefs = PreferencesStore.shared
         let width = preset.width(for: screen)
         let hasContent = !vm.turns.isEmpty || vm.isLoading
         let height = (preset == .xs && !hasContent) ? preset.baseHeight : preset.expandedHeight
-        let x = screen.frame.origin.x + (screen.frame.width - width) / 2
-        let y = screen.frame.origin.y + screen.frame.height * 0.55 - height / 2
+        let (x, y): (CGFloat, CGFloat)
+        if !reposition {
+            // Resize in place — keep current center
+            x = panel.frame.midX - width / 2
+            y = panel.frame.midY - height / 2
+        } else if prefs.savePanelPosition, let saved = prefs.savedPanelCenter, pointIsOnScreen(saved) {
+            x = saved.x - width / 2
+            y = saved.y - height / 2
+        } else {
+            x = screen.frame.origin.x + (screen.frame.width - width) / 2
+            y = screen.frame.origin.y + screen.frame.height * 0.55 - height / 2
+        }
         let newFrame = NSRect(x: x, y: y, width: width, height: height)
         if animated {
             NSAnimationContext.runAnimationGroup { ctx in
@@ -193,6 +204,12 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
 
     // MARK: - NSWindowDelegate
 
+    func windowDidMove(_ notification: Notification) {
+        guard let panel, PreferencesStore.shared.savePanelPosition else { return }
+        let center = NSPoint(x: panel.frame.midX, y: panel.frame.midY)
+        PreferencesStore.shared.savePanelCenter(center)
+    }
+
     func windowDidResignKey(_ notification: Notification) {
         guard PreferencesStore.shared.closeOnFocusLoss else { return }
         // Defer one run loop so NSApp.keyWindow reflects the new state.
@@ -258,6 +275,11 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
     private func removeKeyMonitor() {
         if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil }
         if let m = globalEscMonitor { NSEvent.removeMonitor(m); globalEscMonitor = nil }
+    }
+
+    /// Returns true if the given point falls within at least one screen's frame.
+    private func pointIsOnScreen(_ point: NSPoint) -> Bool {
+        NSScreen.screens.contains { NSMouseInRect(point, $0.frame, false) }
     }
 
     // MARK: - Panel setup

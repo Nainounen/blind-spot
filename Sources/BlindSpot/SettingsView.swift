@@ -316,6 +316,19 @@ struct SettingsView: View {
                 }
 
                 Toggle(isOn: Binding(
+                    get: { prefs.savePanelPosition },
+                    set: { prefs.setSavePanelPosition($0) }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Remember panel position")
+                            .font(.callout)
+                        Text("When on, the panel reopens at its last dragged position instead of centered on screen.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Toggle(isOn: Binding(
                     get: { prefs.closeOnFocusLoss },
                     set: { prefs.setCloseOnFocusLoss($0) }
                 )) {
