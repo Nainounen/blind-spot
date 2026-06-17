@@ -22,34 +22,59 @@ enum AIService {
         _ messages: [ConversationMessage],
         profile: AIProfile
     ) async throws -> AsyncThrowingStream<String, Swift.Error> {
-        switch profile.provider {
+        // When images are present and a vision provider is configured, route the
+        // request through that provider's API instead of the primary text provider.
+        let hasImages = messages.contains { $0.image != nil }
+        let routingProvider = (hasImages ? profile.visionProvider : nil) ?? profile.provider
+        let routingModel: String = {
+            if hasImages, let vm = profile.visionModel { return vm }
+            return profile.model
+        }()
+
+        // Build an effective profile so provider-specific behavior (thinking,
+        // model defaults, etc.) uses the routing provider, not the original one.
+        let eff = AIProfile(
+            id: profile.id,
+            name: profile.name,
+            provider: routingProvider,
+            model: routingModel,
+            visionModel: nil,        // Don't recurse
+            visionProvider: nil,     // Don't recurse
+            systemPrompt: profile.systemPrompt,
+            maxOutputTokens: profile.maxOutputTokens,
+            temperature: profile.temperature,
+            thinkingEnabled: profile.thinkingEnabled,
+            reasoningEffort: profile.reasoningEffort
+        )
+
+        switch routingProvider {
         case .openai:
             return try await queryOpenAICompatible(
-                messages, profile: profile,
+                messages, profile: eff,
                 endpoint: "https://api.openai.com/v1/chat/completions"
             )
         case .deepseek:
             return try await queryOpenAICompatible(
-                messages, profile: profile,
+                messages, profile: eff,
                 endpoint: "https://api.deepseek.com/v1/chat/completions"
             )
         case .grok:
             return try await queryOpenAICompatible(
-                messages, profile: profile,
+                messages, profile: eff,
                 endpoint: "https://api.x.ai/v1/chat/completions"
             )
         case .openrouter:
             return try await queryOpenAICompatible(
-                messages, profile: profile,
+                messages, profile: eff,
                 endpoint: "https://openrouter.ai/api/v1/chat/completions",
                 extraHeaders: [
                     "HTTP-Referer": "https://github.com/unveroleone/blind-spot",
                     "X-Title": "BlindSpot",
                 ]
             )
-        case .anthropic: return try await queryAnthropic(messages, profile: profile)
-        case .gemini:    return try await queryGemini(messages, profile: profile)
-        case .ollama:    return try await queryOllama(messages, profile: profile)
+        case .anthropic: return try await queryAnthropic(messages, profile: eff)
+        case .gemini:    return try await queryGemini(messages, profile: eff)
+        case .ollama:    return try await queryOllama(messages, profile: eff)
         }
     }
 

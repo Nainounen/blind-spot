@@ -424,9 +424,81 @@ struct SettingsView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+
+                    // Live preview — show what the capture dimensions look like
+                    screenshotPreview
                 }
             }
         }
+    }
+
+    // MARK: - Screenshot Preview
+
+    private var screenshotPreview: some View {
+        let screen = NSScreen.main ?? NSScreen.screens.first
+        let screenW = screen?.frame.width ?? 1512
+        let screenH = screen?.frame.height ?? 982
+        let pad = prefs.screenshotPadding
+        let minW = prefs.screenshotMinWidth
+        let minH = prefs.screenshotMinHeight
+
+        // Typical single-line text selection: ~300px wide, ~20px tall
+        let typicalW = max(300 + 2 * pad, minW)
+        let typicalH = max(20 + 2 * pad, minH)
+
+        let pctW = Int(typicalW / screenW * 100)
+        let pctH = Int(typicalH / screenH * 100)
+
+        // Figure out the Mac model from screen resolution
+        let modelName: String = {
+            let w = Int(screenW), h = Int(screenH)
+            switch (w, h) {
+            case (1512, 982):  return "14\" MacBook Pro"
+            case (1728, 1117): return "16\" MacBook Pro"
+            case (1470, 956):  return "13\" MacBook Air"
+            case (1710, 1107): return "15\" MacBook Air"
+            default:           return "\(w)×\(h) display"
+            }
+        }()
+
+        // Scale the preview bar — fit inside ~280px max
+        let barMaxWidth: CGFloat = 280
+        let barW = min(barMaxWidth, barMaxWidth * typicalW / screenW)
+        let barH: CGFloat = 16
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Preview on your \(modelName)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("~\(Int(typicalW))×\(Int(typicalH)) px (\(pctW)%×\(pctH)%)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+
+            // Visual bar: screen width reference
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.secondary.opacity(0.15))
+                    .frame(width: barMaxWidth, height: barH)
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.accentColor.opacity(0.5))
+                    .frame(width: barW, height: barH)
+                    .overlay(
+                        Text("capture")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(.white)
+                            .opacity(barW > 60 ? 1 : 0)
+                    )
+            }
+
+            Text("A typical line of selected text captures roughly this portion of your screen. On larger displays (like an external monitor), the relative footprint is smaller.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(10)
+        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 8))
     }
 
     // MARK: - Hotkeys tab
@@ -966,23 +1038,49 @@ private struct ProfileEditorView: View {
                     }
                 }
 
-                // Vision model (only shown when provider supports images)
-                if draft.provider.supportsVision {
-                    VStack(alignment: .leading, spacing: 5) {
-                        fieldLabel("Vision Model")
-                        TextField("Same as text model (leave empty)", text: Binding(
-                            get: { draft.visionModel ?? "" },
-                            set: { v in
-                                draft.visionModel = v.isEmpty ? nil : v
-                                isDirty = true
+                // Vision overrides (for visual context requests via ⌘⇧⌥Space)
+                if draft.provider.supportsVision || draft.visionProvider != nil {
+                    VStack(alignment: .leading, spacing: 10) {
+                        fieldLabel("Visual Context (⌘⇧⌥Space)")
+
+                        HStack(spacing: 8) {
+                            Text("Provider").font(.caption).foregroundStyle(.secondary).frame(width: 55, alignment: .leading)
+                            Picker("", selection: Binding(
+                                get: { draft.visionProvider ?? draft.provider },
+                                set: { p in
+                                    draft.visionProvider = p == draft.provider ? nil : p
+                                    isDirty = true
+                                }
+                            )) {
+                                Text("Same as text").tag(draft.provider)
+                                ForEach(Provider.allCases.filter { $0.supportsVision }, id: \.rawValue) { p in
+                                    Text(p.displayName).tag(p)
+                                }
                             }
-                        ))
-                        .textFieldStyle(.plain)
-                        .glassField()
-                        Text("Override model for visual context requests (⌘⇧⌥Space). Leave empty to use the same model as text.")
+                            .pickerStyle(.menu)
+                            .labelsHidden()
+                        }
+
+                        HStack(spacing: 8) {
+                            Text("Model").font(.caption).foregroundStyle(.secondary).frame(width: 55, alignment: .leading)
+                            TextField("Default for provider", text: Binding(
+                                get: { draft.visionModel ?? "" },
+                                set: { v in
+                                    draft.visionModel = v.isEmpty ? nil : v
+                                    isDirty = true
+                                }
+                            ))
+                            .textFieldStyle(.plain)
+                            .glassField()
+                        }
+
+                        Text("Use a different provider or model for screenshot requests. For example, route via Gemini for vision even when your text queries go through DeepSeek.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                    .padding(14)
+                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
                 }
 
                 // System Prompt

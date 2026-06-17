@@ -19,6 +19,7 @@ struct AIProfile: Identifiable, Equatable {
     var provider: Provider
     var model: String
     var visionModel: String?
+    var visionProvider: Provider?
     var systemPrompt: String
     var maxOutputTokens: Int
     var temperature: Double
@@ -32,6 +33,7 @@ struct AIProfile: Identifiable, Equatable {
         provider: Provider,
         model: String = "",
         visionModel: String? = nil,
+        visionProvider: Provider? = nil,
         systemPrompt: String = "",
         maxOutputTokens: Int = 4096,
         temperature: Double = 1.0,
@@ -44,6 +46,7 @@ struct AIProfile: Identifiable, Equatable {
         self.provider = provider
         self.model = model.isEmpty ? provider.defaultModel : model
         self.visionModel = visionModel
+        self.visionProvider = visionProvider
         self.systemPrompt = systemPrompt
         self.maxOutputTokens = maxOutputTokens
         self.temperature = temperature
@@ -55,7 +58,8 @@ struct AIProfile: Identifiable, Equatable {
 
 extension AIProfile: Codable {
     enum CodingKeys: String, CodingKey {
-        case id, name, provider, model, systemPrompt, maxOutputTokens, temperature, createdAt
+        case id, name, provider, model, visionModel, visionProvider
+        case systemPrompt, maxOutputTokens, temperature, createdAt
         case thinkingEnabled, reasoningEffort
     }
 
@@ -65,6 +69,8 @@ extension AIProfile: Codable {
         name = try c.decode(String.self, forKey: .name)
         provider = try c.decode(Provider.self, forKey: .provider)
         model = try c.decode(String.self, forKey: .model)
+        visionModel = try c.decodeIfPresent(String.self, forKey: .visionModel)
+        visionProvider = try c.decodeIfPresent(Provider.self, forKey: .visionProvider)
         systemPrompt = try c.decode(String.self, forKey: .systemPrompt)
         maxOutputTokens = try c.decode(Int.self, forKey: .maxOutputTokens)
         temperature = try c.decode(Double.self, forKey: .temperature)
@@ -79,6 +85,8 @@ extension AIProfile: Codable {
         try c.encode(name, forKey: .name)
         try c.encode(provider, forKey: .provider)
         try c.encode(model, forKey: .model)
+        try c.encodeIfPresent(visionModel, forKey: .visionModel)
+        try c.encodeIfPresent(visionProvider, forKey: .visionProvider)
         try c.encode(systemPrompt, forKey: .systemPrompt)
         try c.encode(maxOutputTokens, forKey: .maxOutputTokens)
         try c.encode(temperature, forKey: .temperature)
