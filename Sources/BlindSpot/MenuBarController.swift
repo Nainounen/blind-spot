@@ -30,6 +30,14 @@ final class MenuBarController {
         ) { _ in
             Task { @MainActor [weak self] in self?.rebuildMenu() }
         }
+
+        NotificationCenter.default.addObserver(
+            forName: .profilesDidUpdate,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor [weak self] in self?.rebuildMenu() }
+        }
     }
 
     func rebuildMenu() {
@@ -136,4 +144,5 @@ final class MenuBarController {
 
 extension Notification.Name {
     static let providerDidChange = Notification.Name("BlindSpotProviderDidChange")
+    static let profilesDidUpdate = Notification.Name("BlindSpotProfilesDidUpdate")
 }

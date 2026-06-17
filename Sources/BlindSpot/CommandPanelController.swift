@@ -32,7 +32,21 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
     /// opens the panel in free-form mode so the user can type.
     /// Pass `image` (PNG data) to attach a screenshot to the first turn; only sent
     /// when the active provider supports vision.
+    ///
+    /// When the panel is already visible, appends to the current conversation
+    /// instead of starting a new one — so repeated hotkey presses build context.
     func show(query: String?, image: Data? = nil) {
+        // Already visible — append to current conversation
+        if let panel, panel.isVisible {
+            NSApp.activate(ignoringOtherApps: true)
+            if let q = query, !q.isEmpty {
+                startTurn(userText: q, image: image)
+            } else {
+                vm.focusInput = true
+            }
+            return
+        }
+
         previousApp = NSWorkspace.shared.frontmostApplication
         buildPanelIfNeeded()
         resizePanel(animated: false, reposition: true)

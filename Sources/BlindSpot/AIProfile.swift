@@ -152,6 +152,7 @@ final class ProfilesStore {
         guard profiles.contains(where: { $0.id == id }) else { return }
         activeProfileId = id
         saveActiveId()
+        NotificationCenter.default.post(name: .profilesDidUpdate, object: nil)
     }
 
     // MARK: - Persistence

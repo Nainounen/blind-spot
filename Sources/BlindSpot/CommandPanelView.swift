@@ -874,16 +874,74 @@ struct CommandPanelView: View {
         }
     }
 
-    // MARK: - XS compact layout (no sidebar, no status bar)
+    // MARK: - XS compact layout (minimal header, no sidebar)
 
     private var xsLayout: some View {
-        ConversationArea(
-            vm: vm,
-            onFollowUp: onFollowUp,
-            onCancel: onCancel,
-            onClose: onClose,
-            isCompact: true
-        )
+        let active = ProfilesStore.shared.activeProfile
+        let all = ProfilesStore.shared.profiles
+
+        return VStack(spacing: 0) {
+            // Minimal header: profile switcher + close button
+            HStack {
+                if all.count > 1 {
+                    Menu {
+                        ForEach(all) { p in
+                            Button {
+                                ProfilesStore.shared.activate(p.id)
+                            } label: {
+                                HStack {
+                                    Text(p.name)
+                                    if p.id == ProfilesStore.shared.activeProfileId {
+                                        Spacer()
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(providerColor(active.provider))
+                                .frame(width: 6, height: 6)
+                            Text(active.name)
+                                .font(.caption)
+                                .lineLimit(1)
+                        }
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                } else {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(providerColor(active.provider))
+                            .frame(width: 6, height: 6)
+                        Text(active.name)
+                            .font(.caption)
+                    }
+                }
+
+                Spacer()
+
+                Button(action: onClose) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+
+            Divider()
+
+            ConversationArea(
+                vm: vm,
+                onFollowUp: onFollowUp,
+                onCancel: onCancel,
+                onClose: onClose,
+                isCompact: true
+            )
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -926,5 +984,17 @@ struct CommandPanelView: View {
     @MainActor private func reload() {
         conversations = ConversationStore.shared.conversations
         folders = ConversationStore.shared.folders
+    }
+
+    private func providerColor(_ p: Provider) -> Color {
+        switch p {
+        case .openai:     return .green
+        case .anthropic:  return .orange
+        case .gemini:     return .blue
+        case .deepseek:   return .cyan
+        case .grok:       return .primary
+        case .openrouter: return .purple
+        case .ollama:     return .indigo
+        }
     }
 }
