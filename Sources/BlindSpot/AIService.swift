@@ -81,12 +81,13 @@ enum AIService {
             "stream": true,
             "messages": apiMessages,
         ]
-        if profile.thinkingEnabled {
+        let hasImages = messages.contains { $0.image != nil }
+        if profile.thinkingEnabled && !hasImages {
             body["reasoning_effort"] = profile.reasoningEffort.rawValue
             if profile.provider == .deepseek {
                 body["thinking"] = ["type": "enabled"]
             }
-        } else {
+        } else if !profile.thinkingEnabled || hasImages {
             body["temperature"] = profile.temperature
         }
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -144,7 +145,8 @@ enum AIService {
             "messages": apiMessages,
         ]
         if let s = systemText { body["system"] = s }
-        if profile.thinkingEnabled {
+        let hasImages = messages.contains { $0.image != nil }
+        if profile.thinkingEnabled && !hasImages {
             body["thinking"] = ["type": "adaptive", "effort": profile.reasoningEffort.rawValue]
         }
         req.httpBody = try JSONSerialization.data(withJSONObject: body)

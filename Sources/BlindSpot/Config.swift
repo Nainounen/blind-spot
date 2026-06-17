@@ -37,8 +37,8 @@ enum Provider: String, CaseIterable, Codable {
 
     var supportsVision: Bool {
         switch self {
-        case .openai, .anthropic, .gemini, .grok, .openrouter: return true
-        case .deepseek, .ollama: return false
+        case .openai, .anthropic, .gemini, .grok, .deepseek, .openrouter: return true
+        case .ollama: return false
         }
     }
 
