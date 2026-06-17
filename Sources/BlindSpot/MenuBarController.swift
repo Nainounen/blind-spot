@@ -96,6 +96,24 @@ final class MenuBarController {
             menu.addItem(recentItem)
         }
 
+        // Panel size submenu
+        let sizeItem = NSMenuItem(title: "Panel Size", action: nil, keyEquivalent: "")
+        let sizeMenu = NSMenu()
+        let currentPreset = PreferencesStore.shared.panelSizePreset
+        for preset in PanelSizePreset.allCases {
+            let item = NSMenuItem(
+                title: preset.displayName,
+                action: #selector(selectPanelSize(_:)),
+                keyEquivalent: ""
+            )
+            item.representedObject = preset.rawValue
+            item.target = self
+            item.state = preset == currentPreset ? .on : .off
+            sizeMenu.addItem(item)
+        }
+        sizeItem.submenu = sizeMenu
+        menu.addItem(sizeItem)
+
         menu.addItem(.separator())
 
         let settings = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
@@ -139,6 +157,14 @@ final class MenuBarController {
 
     @objc private func checkForUpdates() {
         onCheckForUpdates()
+    }
+
+    @objc private func selectPanelSize(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let preset = PanelSizePreset(rawValue: raw) else { return }
+        PreferencesStore.shared.setPanelSizePreset(preset)
+        CommandPanelController.shared.resizePanel(animated: true)
+        rebuildMenu()
     }
 }
 
