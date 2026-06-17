@@ -1,6 +1,6 @@
 # BlindSpot
 
-![BlindSpot](assets/example.png)
+<p align="center"><img src="assets/example.png" alt="BlindSpot" width="96"></p>
 
 [![Latest Release](https://img.shields.io/github/v/release/Nainounen/blind-spot?style=flat-square&color=7c3aed)](https://github.com/Nainounen/blind-spot/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-blue?style=flat-square&logo=apple)](https://github.com/Nainounen/blind-spot/releases/latest)
