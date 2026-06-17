@@ -8,7 +8,7 @@ private enum SettingsTab: String, CaseIterable {
     case apiKeys       = "API Keys"
     case preferences   = "Preferences"
     case hotkeys       = "Hotkeys"
-    case accessibility = "Accessibility"
+    case accessibility = "Permissions"
     case about         = "About"
 
     var icon: String {
@@ -79,6 +79,7 @@ struct SettingsView: View {
     @State private var draftKey: String = ""
     @State private var showKey: Bool = false
     @State private var axGranted: Bool = AXIsProcessTrusted()
+    @State private var screenRecordingGranted: Bool = CGPreflightScreenCaptureAccess()
 
     var body: some View {
         HStack(spacing: 0) {
@@ -471,42 +472,85 @@ struct SettingsView: View {
     // MARK: - Accessibility tab
 
     private var accessibilitySection: some View {
-        SettingsSection(title: "Accessibility") {
-            if !axGranted {
-                HStack(spacing: 10) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Accessibility access required")
-                            .font(.callout.bold())
-                        Text("BlindSpot can't read selected text or listen for hotkeys until you grant access. Screen Recording permission is also needed for visual context screenshots (⌘⇧⌥Space).")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button("Open Settings") {
-                        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-                        NSWorkspace.shared.open(url)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
+        SettingsSection(title: "Permissions") {
+            VStack(alignment: .leading, spacing: 16) {
+                // -- Accessibility --
+                permissionRow(
+                    icon: "text.cursor",
+                    title: "Accessibility",
+                    description: "Read selected text from any app without touching the clipboard, and listen for global hotkeys.",
+                    usedBy: "⌘⇧Space, ⌘⇧⌥Space, ⌘⌥A, ⌘⌥⇧A, ⌘⌥Q",
+                    granted: axGranted,
+                    openURL: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+                )
+
+                Divider()
+
+                // -- Screen Recording --
+                permissionRow(
+                    icon: "camera.viewfinder",
+                    title: "Screen Recording",
+                    description: "Capture a screenshot of the area around your selected text so the AI can see visual context like UI, diagrams, or code layout.",
+                    usedBy: "⌘⇧⌥Space (Visual Context)",
+                    granted: screenRecordingGranted,
+                    openURL: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+                )
+
+                if axGranted && screenRecordingGranted {
+                    Divider()
+                    Label("All permissions granted", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .font(.callout)
                 }
-                .padding(10)
-                .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.orange.opacity(0.3), lineWidth: 1))
-            } else {
-                HStack {
-                    Label("Granted", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-                    Spacer()
-                }
-                .font(.callout)
             }
         }
         .onAppear {
+            screenRecordingGranted = CGPreflightScreenCaptureAccess()
             Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { t in
-                let granted = AXIsProcessTrusted()
-                if granted { t.invalidate() }
-                Task { @MainActor in axGranted = granted }
+                let axOK = AXIsProcessTrusted()
+                let srOK = CGPreflightScreenCaptureAccess()
+                if axOK && srOK { t.invalidate() }
+                Task { @MainActor in
+                    axGranted = axOK
+                    screenRecordingGranted = srOK
+                }
+            }
+        }
+    }
+
+    private func permissionRow(
+        icon: String,
+        title: String,
+        description: String,
+        usedBy: String,
+        granted: Bool,
+        openURL: String
+    ) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: granted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(granted ? .green : .orange)
+                .frame(width: 20, height: 20)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.callout.bold())
+                Text(description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(usedBy)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
+            Spacer(minLength: 8)
+
+            if !granted {
+                Button("Open Settings") {
+                    NSWorkspace.shared.open(URL(string: openURL)!)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
             }
         }
     }
