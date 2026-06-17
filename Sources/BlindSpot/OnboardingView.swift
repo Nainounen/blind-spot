@@ -24,7 +24,10 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
             w.titleVisibility = .hidden
             w.titlebarAppearsTransparent = true
             w.isMovableByWindowBackground = true
-            w.contentView = NSHostingView(rootView: view)
+            let hostingView = NSHostingView(rootView: view)
+            let glassView = NSGlassEffectView()
+            glassView.contentView = hostingView
+            w.contentView = glassView
             w.center()
             w.delegate = self
             window = w
@@ -84,7 +87,6 @@ struct OnboardingView: View {
                 .padding(.vertical, 14)
             }
         }
-        .glassEffect()
         .onDisappear { axTimer?.invalidate() }
     }
 

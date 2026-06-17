@@ -49,7 +49,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             w.minSize = NSSize(width: 720, height: 480)
             w.isReleasedWhenClosed = false
             w.appearance = NSApp.effectiveAppearance
-            w.contentView = NSHostingView(rootView: SettingsView())
+            let hostingView = NSHostingView(rootView: SettingsView())
+            let glassView = NSGlassEffectView()
+            glassView.contentView = hostingView
+            w.contentView = glassView
             w.center()
             w.delegate = self
             window = w
@@ -84,8 +87,6 @@ struct SettingsView: View {
             contentPane
         }
         .frame(minWidth: 720, maxWidth: .infinity, minHeight: 480, maxHeight: .infinity)
-        .glassEffect()
-        .ignoresSafeArea()
     }
 
     // MARK: - Sidebar
