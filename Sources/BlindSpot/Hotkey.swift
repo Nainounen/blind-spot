@@ -30,6 +30,11 @@ struct Hotkey: Codable, Equatable {
         modifiers: NSEvent.ModifierFlags([.command, .option, .shift]).rawValue
     )
 
+    static let defaultVisualContext = Hotkey(
+        keyCode: 49, // Space
+        modifiers: NSEvent.ModifierFlags([.command, .shift, .option]).rawValue
+    )
+
     var modifierFlags: NSEvent.ModifierFlags {
         NSEvent.ModifierFlags(rawValue: modifiers)
     }

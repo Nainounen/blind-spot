@@ -84,10 +84,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Visual context hotkey (⌘⇧⌥Space) — captures selected text + screenshot
         let visualContextManager = HotkeyManager(
-            hotkey: Hotkey(
-                keyCode: 49,
-                modifiers: NSEvent.ModifierFlags([.command, .shift, .option]).rawValue
-            )
+            hotkey: PreferencesStore.shared.visualContextHotkey
         ) { [weak self] in
             self?.handleVisualContextHotkey()
         }
@@ -117,6 +114,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] hk in self?.answerAllHotkeyManager?.update(to: hk) }
+            .store(in: &cancellables)
+
+        PreferencesStore.shared.$visualContextHotkey
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] hk in self?.visualContextHotkeyManager?.update(to: hk) }
             .store(in: &cancellables)
 
         // Pause the tap while the user is recording so we don't swallow the
@@ -150,6 +153,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] recording in
                 if recording { self?.answerAllHotkeyManager?.pause() }
                 else         { self?.answerAllHotkeyManager?.resume() }
+            }
+            .store(in: &cancellables)
+
+        PreferencesStore.shared.$isRecordingVisualContextHotkey
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] recording in
+                if recording { self?.visualContextHotkeyManager?.pause() }
+                else         { self?.visualContextHotkeyManager?.resume() }
             }
             .store(in: &cancellables)
 

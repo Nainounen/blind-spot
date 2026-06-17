@@ -538,12 +538,19 @@ private struct TurnView: View {
             if !turn.query.isEmpty {
                 HStack {
                     Spacer()
-                    Text(turn.query)
-                        .font(.callout)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-                        .textSelection(.enabled)
+                    VStack(alignment: .trailing, spacing: 4) {
+                        if turn.hasImage {
+                            Label("Image attached", systemImage: "photo")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(turn.query)
+                            .font(.callout)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                    .textSelection(.enabled)
                 }
             }
 

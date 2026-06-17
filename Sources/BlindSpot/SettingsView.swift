@@ -383,6 +383,17 @@ struct SettingsView: View {
                 )
                 Divider().opacity(0.3).padding(.leading, 84)
                 hotkeyRow(
+                    label: "Visual Context",
+                    hotkey: prefs.visualContextHotkey,
+                    isRecording: $prefs.isRecordingVisualContextHotkey,
+                    onCapture: { prefs.setVisualContextHotkey($0) },
+                    defaultHotkey: .defaultVisualContext,
+                    resetLabel: "⌘⇧⌥Space",
+                    resetAction: { prefs.resetVisualContextHotkey() },
+                    description: "Ask with screenshot"
+                )
+                Divider().opacity(0.3).padding(.leading, 84)
+                hotkeyRow(
                     label: "Auto-Answer",
                     hotkey: prefs.autoAnswerHotkey,
                     isRecording: $prefs.isRecordingAutoAnswerHotkey,
@@ -465,10 +476,10 @@ struct SettingsView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("Accessibility access required")
                             .font(.callout.bold())
-                        Text("BlindSpot can't read selected text or listen for the hotkey until you grant access.")
+                        Text("BlindSpot can't read selected text or listen for hotkeys until you grant access. Screen Recording permission is also needed for visual context screenshots (⌘⇧⌥Space).")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

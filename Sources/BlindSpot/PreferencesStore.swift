@@ -80,6 +80,8 @@ final class PreferencesStore: ObservableObject {
     @Published var isRecordingAutoAnswerHotkey: Bool = false
     @Published var answerAllHotkey: Hotkey
     @Published var isRecordingAnswerAllHotkey: Bool = false
+    @Published var visualContextHotkey: Hotkey
+    @Published var isRecordingVisualContextHotkey: Bool = false
 
     /// Names of models installed on the local Ollama server (e.g. `llama3.2:latest`).
     @Published var installedOllamaModels: [String] = []
@@ -141,6 +143,12 @@ final class PreferencesStore: ObservableObject {
             answerAllHotkey = hk
         } else {
             answerAllHotkey = .defaultAnswerAll
+        }
+        if let data = UserDefaults.standard.data(forKey: "visualContextHotkey"),
+           let hk = try? JSONDecoder().decode(Hotkey.self, from: data) {
+            visualContextHotkey = hk
+        } else {
+            visualContextHotkey = .defaultVisualContext
         }
         let storedMax = UserDefaults.standard.integer(forKey: "maxTokens")
         maxTokens = storedMax > 0 ? storedMax : 4096
@@ -242,6 +250,15 @@ final class PreferencesStore: ObservableObject {
     }
 
     func resetAnswerAllHotkey() { setAnswerAllHotkey(.defaultAnswerAll) }
+
+    func setVisualContextHotkey(_ hk: Hotkey) {
+        visualContextHotkey = hk
+        if let data = try? JSONEncoder().encode(hk) {
+            defaults.set(data, forKey: "visualContextHotkey")
+        }
+    }
+
+    func resetVisualContextHotkey() { setVisualContextHotkey(.defaultVisualContext) }
 
     func setMaxTokens(_ tokens: Int) {
         maxTokens = max(256, min(8192, tokens))

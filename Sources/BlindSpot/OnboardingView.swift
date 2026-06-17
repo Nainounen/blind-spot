@@ -204,6 +204,7 @@ private struct WelcomeStep: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 FeatureBullet(icon: "hand.tap",  text: "Select any text, press ⌘⇧Space")
+                FeatureBullet(icon: "camera.viewfinder", text: "Or ⌘⇧⌥Space to include a screenshot for visual context")
                 FeatureBullet(icon: "brain",     text: "Get an instant AI answer")
                 FeatureBullet(icon: "eye.slash", text: "The overlay is invisible to screen capture")
             }
@@ -365,13 +366,14 @@ private struct AccessibilityStep: View {
         VStack(spacing: 20) {
             StepHeader(
                 title: "Allow Accessibility Access",
-                subtitle: "Required to read selected text and listen for the hotkey."
+                subtitle: "Required to read selected text and listen for the hotkey. Screen Recording is needed to capture screenshots with visual context."
             )
 
             VStack(alignment: .leading, spacing: 12) {
                 BulletRow(icon: "text.cursor",  text: "Read your selected text without touching the clipboard")
-                BulletRow(icon: "keyboard",     text: "Listen for the global hotkey ⌘⇧Space")
-                BulletRow(icon: "lock.shield",  text: "BlindSpot only reads text you explicitly select")
+                BulletRow(icon: "keyboard",     text: "Listen for the global hotkeys ⌘⇧Space and ⌘⇧⌥Space")
+                BulletRow(icon: "camera.viewfinder", text: "Capture screenshots for visual context (⌘⇧⌥Space)")
+                BulletRow(icon: "lock.shield",  text: "BlindSpot only reads text and regions you explicitly target")
             }
             .padding(16)
             .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
@@ -439,13 +441,26 @@ private struct DoneStep: View {
                 Text("BlindSpot is ready!")
                     .font(.system(size: 26, weight: .bold))
 
-                Text("Select any text, then press:")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                VStack(spacing: 8) {
+                    Text("Select any text, then press:")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
 
-                HStack(spacing: 6) {
-                    ForEach(["⌘", "⇧", "Space"], id: \.self) { k in
-                        KeyBadge(label: k)
+                    HStack(spacing: 6) {
+                        ForEach(["⌘", "⇧", "Space"], id: \.self) { k in
+                            KeyBadge(label: k)
+                        }
+                    }
+
+                    Text("Add Option for visual context:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 8)
+
+                    HStack(spacing: 6) {
+                        ForEach(["⌘", "⇧", "⌥", "Space"], id: \.self) { k in
+                            KeyBadge(label: k)
+                        }
                     }
                 }
                 .font(.title3)

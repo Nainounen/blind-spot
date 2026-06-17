@@ -152,7 +152,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         )
 
         let turnIndex = vm.turns.count
-        vm.turns.append(CommandPanelViewModel.Turn(query: userText, response: ""))
+        vm.turns.append(CommandPanelViewModel.Turn(query: userText, response: "", hasImage: attachment != nil))
         vm.isLoading = true
         vm.errorMessage = nil
         resizePanel(animated: true)

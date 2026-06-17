@@ -6,6 +6,7 @@ final class CommandPanelViewModel {
     struct Turn {
         let query: String
         var response: String
+        var hasImage: Bool = false
     }
 
     var turns: [Turn] = []
@@ -40,7 +41,7 @@ final class CommandPanelViewModel {
             if msg.role == .user {
                 let response = (idx + 1 < userAndAssistant.count && userAndAssistant[idx + 1].role == .assistant)
                     ? userAndAssistant[idx + 1].content : ""
-                rebuilt.append(Turn(query: msg.content, response: response))
+                rebuilt.append(Turn(query: msg.content, response: response, hasImage: msg.image != nil))
                 idx += 2
             } else {
                 idx += 1
