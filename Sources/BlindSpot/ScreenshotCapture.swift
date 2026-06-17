@@ -11,22 +11,35 @@ enum ScreenshotCapture {
 
     /// Captures a padded region around `rect` (CG screen coordinates) as PNG data.
     /// Returns nil if screen recording permission is not granted or capture fails.
-    static func captureRegion(_ rect: CGRect, padding: CGFloat = 80) async -> Data? {
-        let padded = rect.insetBy(dx: -padding, dy: -padding)
+    static func captureRegion(_ rect: CGRect) async -> Data? {
+        // Expand selection rect generously — 300px padding on each side gives
+        // enough context for the AI to see surrounding UI, code, or layout.
+        let padded = rect.insetBy(dx: -300, dy: -300)
+
+        // Enforce a minimum capture size so even tiny selections (or the mouse
+        // fallback) produce a useful screenshot.
+        let minWidth: CGFloat  = 640
+        let minHeight: CGFloat = 400
+        let finalRect = CGRect(
+            x:      padded.minX,
+            y:      padded.minY,
+            width:  max(padded.width,  minWidth),
+            height: max(padded.height, minHeight)
+        )
 
         do {
             let content = try await SCShareableContent.current
-            guard let display = content.displays.first(where: { $0.frame.contains(CGPoint(x: padded.midX, y: padded.midY)) })
+            guard let display = content.displays.first(where: { $0.frame.contains(CGPoint(x: finalRect.midX, y: finalRect.midY)) })
                               ?? content.displays.first else { return nil }
 
             let filter = SCContentFilter(display: display, excludingWindows: [])
 
             // sourceRect must be in the display's local coordinate space (origin 0,0 at display top-left)
             let localRect = CGRect(
-                x: padded.origin.x - display.frame.origin.x,
-                y: padded.origin.y - display.frame.origin.y,
-                width:  max(1, padded.width),
-                height: max(1, padded.height)
+                x: finalRect.origin.x - display.frame.origin.x,
+                y: finalRect.origin.y - display.frame.origin.y,
+                width:  max(1, finalRect.width),
+                height: max(1, finalRect.height)
             )
 
             let config = SCStreamConfiguration()
