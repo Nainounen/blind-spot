@@ -1,16 +1,21 @@
 # BlindSpot — TODO / Ideas
 
-## Visual Context Screenshot (⌘⇧⌥Space)
+## Known issues
 
-Status: **Done, with known limitations.**
+- **DeepSeek V4 vision**: Returns HTTP 400 when sending images via the OpenAI-compatible endpoint. The API docs claim support for `image_url` content blocks, but in practice the request is rejected. Possibly a model name issue (deepseek-v4-flash vs deepseek-chat), a beta limitation, or a format quirk. Needs further investigation — test with `deepseek-v4-pro` or try the Anthropic-compatible endpoint.
 
-- **Gemini** — confirmed working. The screenshot is sent and the model references visual content.
-- **OpenAI (gpt-4o), Anthropic (Claude), Grok** — should work (standard OpenAI image format) but not yet tested.
-- **DeepSeek V4** — NOT working. Returns HTTP 400 despite using the documented OpenAI-compatible format. The API docs claim support for `image_url` content blocks on the `/v1/chat/completions` endpoint, but in practice the request is rejected. Needs further investigation — could be a model name issue (deepseek-v4-flash vs deepseek-chat) or a beta limitation on the vision endpoint.
-- **Ollama** — not supported (text-only).
+## Done
 
-## Features
-
-- **Same-panel follow-up**: When the command panel is already open, pressing the hotkey again should append to the current conversation instead of starting a new one. Both for text and visual context.
-- **XS panel profile switching**: The XS compact layout currently has no profile selector. Add a minimal profile switcher.
-- **Menu bar profile sync**: The menu bar active profile indicator sometimes goes stale — switching profiles in Settings doesn't update the menu bar.
+- [x] Visual context screenshot (⌘⇧⌥Space) — capture area around selection, send to AI
+- [x] Same-panel follow-up — hotkey while panel open appends to current conversation
+- [x] Configurable hotkey in Settings → Hotkeys
+- [x] Per-profile vision model/provider override — route vision via different provider than text
+- [x] Configurable screenshot padding + minimum size in Settings → Preferences
+- [x] Minimap screenshot preview in Settings
+- [x] XS panel profile switcher
+- [x] Menu bar profile sync (profilesDidUpdate notification)
+- [x] Menu bar panel size presets (XS/Small/Medium/Large)
+- [x] Permissions tab showing Accessibility + Screen Recording status
+- [x] [image] indicator in chat bubbles
+- [x] Sparkle update window activation fix
+- [x] Onboarding mentions both shortcuts and permissions
