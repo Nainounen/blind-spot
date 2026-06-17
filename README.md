@@ -1,13 +1,19 @@
-# BlindSpot
+<p align="center">
+  <img src="assets/example.png" alt="BlindSpot" width="96">
+</p>
 
-<p align="center"><img src="assets/example.png" alt="BlindSpot" width="96"></p>
+<h1 align="center">BlindSpot</h1>
 
-[![Latest Release](https://img.shields.io/github/v/release/Nainounen/blind-spot?style=flat-square&color=7c3aed)](https://github.com/Nainounen/blind-spot/releases/latest)
-[![macOS](https://img.shields.io/badge/macOS-14%2B-blue?style=flat-square&logo=apple)](https://github.com/Nainounen/blind-spot/releases/latest)
-[![Swift](https://img.shields.io/badge/Swift-5.9-orange?style=flat-square&logo=swift)](https://swift.org)
-[![License](https://img.shields.io/github/license/Nainounen/blind-spot?style=flat-square)](LICENSE)
+<p align="center">
+  <em>AI answers for anything you select — invisible to screen recorders.</em>
+</p>
 
-AI answers for anything you select — invisible to screen recorders.
+<p align="center">
+  <img src="https://img.shields.io/github/v/release/Nainounen/blind-spot?style=flat-square&color=111111&label=release" alt="Latest Release">
+  <img src="https://img.shields.io/badge/macOS-15%2B-111111?style=flat-square&logo=apple" alt="macOS">
+  <img src="https://img.shields.io/badge/Swift-5.9-111111?style=flat-square&logo=swift" alt="Swift">
+  <img src="https://img.shields.io/badge/license-MIT-111111?style=flat-square" alt="License">
+</p>
 
 Select any text, press **⌘⇧Space**, and an answer streams back in a floating overlay that no screenshot tool or screen recording can capture.
 
