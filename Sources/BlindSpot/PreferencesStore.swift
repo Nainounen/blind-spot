@@ -100,6 +100,10 @@ final class PreferencesStore: ObservableObject {
     /// Size preset for the command panel. Default is medium (880 × 560).
     @Published var panelSizePreset: PanelSizePreset
 
+    /// When true, the panel remembers its last dragged position and restores it
+    /// on next open instead of centering on screen.
+    @Published var savePanelPosition: Bool
+
     /// Global system prompt applied to every request when no named
     /// `BLIND_SPOT_PROMPT` is set. Persisted at
     /// ~/.config/blind-spot/system-prompt.txt.
@@ -143,6 +147,7 @@ final class PreferencesStore: ObservableObject {
         closeOnFocusLoss = UserDefaults.standard.bool(forKey: "closeOnFocusLoss")
         autoCopyLastResponse = UserDefaults.standard.bool(forKey: "autoCopyLastResponse")
         panelSizePreset = PanelSizePreset(rawValue: UserDefaults.standard.string(forKey: "panelSizePreset") ?? "") ?? .medium
+        savePanelPosition = UserDefaults.standard.bool(forKey: "savePanelPosition")
         systemPrompt = Self.loadSystemPromptFromDisk()
     }
 
@@ -256,6 +261,35 @@ final class PreferencesStore: ObservableObject {
     func setPanelSizePreset(_ preset: PanelSizePreset) {
         panelSizePreset = preset
         defaults.set(preset.rawValue, forKey: "panelSizePreset")
+    }
+
+    func setSavePanelPosition(_ value: Bool) {
+        savePanelPosition = value
+        defaults.set(value, forKey: "savePanelPosition")
+        if !value {
+            clearSavedPanelCenter()
+        }
+    }
+
+    // MARK: - Panel position persistence
+
+    /// Saved panel center point in screen coordinates, or nil if never dragged.
+    var savedPanelCenter: NSPoint? {
+        let x = UserDefaults.standard.double(forKey: "panelCenterX")
+        let y = UserDefaults.standard.double(forKey: "panelCenterY")
+        guard x != 0 || y != 0 else { return nil }
+        return NSPoint(x: x, y: y)
+    }
+
+    func savePanelCenter(_ point: NSPoint) {
+        guard savePanelPosition else { return }
+        UserDefaults.standard.set(point.x, forKey: "panelCenterX")
+        UserDefaults.standard.set(point.y, forKey: "panelCenterY")
+    }
+
+    private func clearSavedPanelCenter() {
+        UserDefaults.standard.removeObject(forKey: "panelCenterX")
+        UserDefaults.standard.removeObject(forKey: "panelCenterY")
     }
 
     // MARK: - Ollama
