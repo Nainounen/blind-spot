@@ -62,7 +62,32 @@ create-dmg \
     "$DMG" \
     "$APP"
 
-# 4. Compute sha256 — needed for the Cask formula.
+# 4. Notarize the DMG and staple the ticket, so Gatekeeper trusts it on
+#    first launch (no right-click → Open dance). Skipped automatically when
+#    notarization credentials aren't present — e.g. local builds — so the
+#    script still produces a usable (if unnotarized) DMG.
+#
+#    Requires an App Store Connect API key:
+#      NOTARY_KEY_FILE  path to the .p8 private key
+#      NOTARY_KEY_ID    the key's ID (e.g. ABC123DEF4)
+#      NOTARY_ISSUER_ID the issuer UUID from App Store Connect
+if [[ -n "${NOTARY_KEY_FILE:-}" && -n "${NOTARY_KEY_ID:-}" && -n "${NOTARY_ISSUER_ID:-}" ]]; then
+    echo "Submitting $DMG for notarization…"
+    xcrun notarytool submit "$DMG" \
+        --key      "$NOTARY_KEY_FILE" \
+        --key-id   "$NOTARY_KEY_ID" \
+        --issuer   "$NOTARY_ISSUER_ID" \
+        --wait
+    echo "Stapling notarization ticket…"
+    xcrun stapler staple "$DMG"
+    xcrun stapler validate "$DMG"
+    echo "  ✓ Notarized and stapled"
+else
+    echo "⚠ Notarization credentials not set (NOTARY_KEY_FILE / NOTARY_KEY_ID / " \
+         "NOTARY_ISSUER_ID) — shipping an unnotarized DMG." >&2
+fi
+
+# 5. Compute sha256 — needed for the Cask formula.
 SHA256=$(shasum -a 256 "$DMG" | awk '{print $1}')
 echo "$SHA256  $(basename "$DMG")" > "$DMG.sha256"
 

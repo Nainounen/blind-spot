@@ -65,13 +65,40 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Ad-hoc sign the bundle so macOS treats it as a coherent code-signed unit.
-# This must happen AFTER Info.plist is written, since codesign covers it.
-# (Real Developer ID signing would happen later if an Apple cert is added.)
-if codesign --force --deep --sign - "$APP" 2>&1; then
-    echo "  ✓ Ad-hoc signed $APP"
+# Sign the bundle. This must happen AFTER Info.plist is written, since
+# codesign covers it.
+#
+# If SIGN_IDENTITY is set (e.g. "Developer ID Application: Name (TEAMID)"),
+# produce a real, notarization-ready signature: hardened runtime + secure
+# timestamp + entitlements, signing nested code inner-to-outer. Otherwise
+# fall back to an ad-hoc signature so local `swift build` workflows keep
+# working without an Apple certificate.
+SIGN_IDENTITY="${SIGN_IDENTITY:-}"
+ENTITLEMENTS="BlindSpot.entitlements"
+SPARKLE="$APP/Contents/lib/Sparkle.framework"
+
+if [[ -n "$SIGN_IDENTITY" ]]; then
+    echo "Signing with Developer ID: $SIGN_IDENTITY"
+    sign() { codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$@"; }
+
+    # Nested Sparkle code first (inner → outer). The .app last covers everything.
+    sign "$SPARKLE/Versions/B/XPCServices/Downloader.xpc"
+    sign "$SPARKLE/Versions/B/XPCServices/Installer.xpc"
+    sign "$SPARKLE/Versions/B/Autoupdate"
+    sign "$SPARKLE/Versions/B/Updater.app"
+    sign "$SPARKLE"
+    sign --entitlements "$ENTITLEMENTS" "$APP"
+
+    echo "  ✓ Developer ID signed $APP"
+    codesign --verify --deep --strict --verbose=2 "$APP" 2>&1 || \
+        echo "  ⚠ codesign verification reported issues" >&2
 else
-    echo "  ⚠ codesign failed — Sparkle updates may reject this build" >&2
+    echo "No SIGN_IDENTITY set — ad-hoc signing (local/dev build)."
+    if codesign --force --deep --sign - "$APP" 2>&1; then
+        echo "  ✓ Ad-hoc signed $APP"
+    else
+        echo "  ⚠ codesign failed — Sparkle updates may reject this build" >&2
+    fi
 fi
 
 echo ""

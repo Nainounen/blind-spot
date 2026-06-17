@@ -87,6 +87,65 @@ jobs:
         if: steps.check.outputs.skipped == 'false'
         run: brew install create-dmg
 
+      # Import the Developer ID Application cert into a throwaway keychain and
+      # auto-detect the signing identity. If the secret isn't configured the
+      # build still proceeds (ad-hoc signed, unnotarized) so releases never
+      # hard-fail on a missing cert.
+      - name: Import Developer ID certificate
+        id: signing
+        if: steps.check.outputs.skipped == 'false'
+        env:
+          CERT_P12:      ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${CERT_P12:-}" ]]; then
+            echo "::warning::DEVELOPER_ID_CERT_P12 not set — ad-hoc signing, no notarization."
+            exit 0
+          fi
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PW=$(openssl rand -base64 24)
+          security create-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          CERT_FILE="$RUNNER_TEMP/cert.p12"
+          echo -n "$CERT_P12" | base64 --decode > "$CERT_FILE"
+          security import "$CERT_FILE" -k "$KEYCHAIN" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PW" "$KEYCHAIN" >/dev/null
+          # Make the temp keychain searchable alongside the existing ones.
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | sed s/\"//g)
+          rm -f "$CERT_FILE"
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" \
+            | grep "Developer ID Application" | head -1 | sed -E 's/.*\"(.+)\"/\1/')
+          if [[ -z "$IDENTITY" ]]; then
+            echo "::error::No 'Developer ID Application' identity found in the imported cert."
+            exit 1
+          fi
+          echo "Using signing identity: $IDENTITY"
+          echo "SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+      # Write the App Store Connect API key to disk and export the notarytool
+      # env vars consumed by make-release.sh. Skipped when secrets are absent.
+      - name: Prepare notarization key
+        if: steps.check.outputs.skipped == 'false'
+        env:
+          NOTARY_KEY_P8:    ${{ secrets.NOTARY_KEY_P8 }}
+          NOTARY_KEY_ID:    ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${NOTARY_KEY_P8:-}" ]]; then
+            echo "::warning::NOTARY_KEY_P8 not set — DMG will not be notarized."
+            exit 0
+          fi
+          KEYFILE="$RUNNER_TEMP/notary_key.p8"
+          echo -n "$NOTARY_KEY_P8" | base64 --decode > "$KEYFILE"
+          echo "NOTARY_KEY_FILE=$KEYFILE"       >> "$GITHUB_ENV"
+          echo "NOTARY_KEY_ID=$NOTARY_KEY_ID"   >> "$GITHUB_ENV"
+          echo "NOTARY_ISSUER_ID=$NOTARY_ISSUER_ID" >> "$GITHUB_ENV"
+
       - name: Build universal BlindSpot.app + DMG
         if: steps.check.outputs.skipped == 'false'
         run: ./scripts/make-release.sh "${{ steps.meta.outputs.version }}"
@@ -154,8 +213,7 @@ jobs:
             1. Download `${{ steps.meta.outputs.dmg_name }}` below
             2. Double-click to mount it
             3. Drag **BlindSpot** onto the **Applications** folder
-            4. First launch: right-click `BlindSpot.app` in Applications → **Open** → **Open**
-               (only needed once — macOS doesn't recognise the app yet because it's not notarized)
+            4. Launch it — the app is signed with a Developer ID and notarized by Apple, so it opens normally.
 
             **Homebrew:**
             ```
@@ -209,15 +267,6 @@ jobs:
             depends_on macos: ">= :tahoe"
 
             app "BlindSpot.app"
-
-            postflight do
-              system_command "/usr/bin/xattr",
-                             args: ["-cr", "#{appdir}/BlindSpot.app"],
-                             sudo: false
-              system_command "/usr/bin/codesign",
-                             args: ["--force", "--deep", "--sign", "-", "#{appdir}/BlindSpot.app"],
-                             sudo: false
-            end
 
             uninstall quit: "com.blindspot.app"
 
