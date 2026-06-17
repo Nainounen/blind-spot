@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/example.png" alt="BlindSpot" width="96">
+  <img src="assets/cover.png" alt="BlindSpot">
 </p>
 
 <h1 align="center">BlindSpot</h1>
