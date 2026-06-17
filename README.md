@@ -18,9 +18,9 @@ Select any text, press **⌘⇧Space**, and an answer streams back in a floating
 1. Go to the [latest release](https://github.com/Nainounen/blind-spot/releases/latest)
 2. Download `BlindSpot-<version>.dmg`
 3. Open the DMG and drag **BlindSpot** to **Applications**
-4. First launch: right-click → **Open** → **Open**
+4. Launch it normally
 
-That last step is a one-time workaround — BlindSpot isn't notarized yet, so macOS flags it the first time. After that it opens normally.
+BlindSpot is signed with an Apple Developer ID and notarized by Apple, so it opens without any Gatekeeper warnings.
 
 **Requires macOS 14 Sonoma or later. Works on Apple Silicon and Intel.**
 
