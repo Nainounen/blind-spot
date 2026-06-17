@@ -84,7 +84,7 @@ struct SettingsView: View {
             contentPane
         }
         .frame(minWidth: 720, maxWidth: .infinity, minHeight: 480, maxHeight: .infinity)
-        .background(.ultraThinMaterial)
+        .glassEffect()
         .ignoresSafeArea()
     }
 
@@ -291,6 +291,28 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 // Max tokens and system prompt moved to Profiles tab (per-profile).
                 // These global settings are now managed in each AIProfile.
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Panel Size")
+                        .font(.callout)
+                    Picker("Panel Size", selection: Binding(
+                        get: { prefs.panelSizePreset },
+                        set: {
+                            prefs.setPanelSizePreset($0)
+                            CommandPanelController.shared.resizePanel(animated: true)
+                        }
+                    )) {
+                        ForEach(PanelSizePreset.allCases) { preset in
+                            Text(preset.displayName).tag(preset)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(maxWidth: 280)
+                    Text("XS hides the sidebar and shows a compact bar. Takes effect immediately.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
                 Toggle(isOn: Binding(
                     get: { prefs.closeOnFocusLoss },

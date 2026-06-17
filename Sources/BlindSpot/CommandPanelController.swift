@@ -33,6 +33,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
     func show(query: String?) {
         previousApp = NSWorkspace.shared.frontmostApplication
         buildPanelIfNeeded()
+        resizePanel(animated: false)
 
         let profile = ProfilesStore.shared.activeProfile
         vm.startNewConversation(profileId: profile.id)
@@ -55,6 +56,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
     func show(conversation: Conversation) {
         previousApp = NSWorkspace.shared.frontmostApplication
         buildPanelIfNeeded()
+        resizePanel(animated: false)
         vm.loadConversation(conversation)
         panel?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -83,6 +85,28 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         vm.isLoading = false
     }
 
+    /// Resize the panel to match the current size preset and conversation state.
+    /// For XS, the panel expands when there is content and collapses when empty.
+    func resizePanel(animated: Bool) {
+        guard let panel, let screen = NSScreen.main ?? NSScreen.screens.first else { return }
+        let preset = PreferencesStore.shared.panelSizePreset
+        let width = preset.width(for: screen)
+        let hasContent = !vm.turns.isEmpty || vm.isLoading
+        let height = (preset == .xs && !hasContent) ? preset.baseHeight : preset.expandedHeight
+        let x = screen.frame.origin.x + (screen.frame.width - width) / 2
+        let y = screen.frame.origin.y + screen.frame.height * 0.55 - height / 2
+        let newFrame = NSRect(x: x, y: y, width: width, height: height)
+        if animated {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.18
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                panel.animator().setFrame(newFrame, display: true)
+            }
+        } else {
+            panel.setFrame(newFrame, display: true)
+        }
+    }
+
     func selectConversation(_ conv: Conversation) {
         streamTask?.cancel()
         vm.loadConversation(conv)
@@ -92,6 +116,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         streamTask?.cancel()
         vm.startNewConversation(profileId: ProfilesStore.shared.activeProfile.id)
         vm.focusInput = true
+        resizePanel(animated: true)
     }
 
     // MARK: - Conversation / streaming
@@ -113,6 +138,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         vm.turns.append(CommandPanelViewModel.Turn(query: userText, response: ""))
         vm.isLoading = true
         vm.errorMessage = nil
+        resizePanel(animated: true)
 
         // Auto-title the conversation from the first query
         if turnIndex == 0 && (vm.activeConversation?.title.isEmpty ?? true) {
@@ -240,9 +266,9 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         guard panel == nil else { return }
 
         let screen = NSScreen.main ?? NSScreen.screens[0]
-        let maxWidth: CGFloat = 880
-        let width = min(screen.frame.width * 0.80, maxWidth)
-        let height: CGFloat = 560
+        let preset = PreferencesStore.shared.panelSizePreset
+        let width = preset.width(for: screen)
+        let height = preset.baseHeight
 
         let p = CommandPanel(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),

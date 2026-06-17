@@ -2,6 +2,62 @@ import Foundation
 import AppKit
 import Combine
 
+// MARK: - Panel size preset
+
+enum PanelSizePreset: String, CaseIterable, Identifiable {
+    case xs, small, medium, large
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .xs:     return "XS"
+        case .small:  return "Small"
+        case .medium: return "Medium"
+        case .large:  return "Large"
+        }
+    }
+
+    // XS expands vertically when there is conversation content
+    var baseHeight: CGFloat {
+        switch self {
+        case .xs:     return 90
+        case .small:  return 440
+        case .medium: return 560
+        case .large:  return 700
+        }
+    }
+
+    var expandedHeight: CGFloat {
+        switch self {
+        case .xs: return 340
+        default:  return baseHeight
+        }
+    }
+
+    private var maxWidth: CGFloat {
+        switch self {
+        case .xs:     return 580
+        case .small:  return 680
+        case .medium: return 880
+        case .large:  return 1080
+        }
+    }
+
+    private var widthRatio: CGFloat {
+        switch self {
+        case .xs:     return 0.50
+        case .small:  return 0.65
+        case .medium: return 0.80
+        case .large:  return 0.88
+        }
+    }
+
+    func width(for screen: NSScreen) -> CGFloat {
+        min(screen.frame.width * widthRatio, maxWidth)
+    }
+}
+
 @MainActor
 final class PreferencesStore: ObservableObject {
     static let shared = PreferencesStore()
@@ -40,6 +96,9 @@ final class PreferencesStore: ObservableObject {
     /// When true, the last AI response is automatically copied to the clipboard
     /// as soon as streaming completes.
     @Published var autoCopyLastResponse: Bool
+
+    /// Size preset for the command panel. Default is medium (880 × 560).
+    @Published var panelSizePreset: PanelSizePreset
 
     /// Global system prompt applied to every request when no named
     /// `BLIND_SPOT_PROMPT` is set. Persisted at
@@ -83,6 +142,7 @@ final class PreferencesStore: ObservableObject {
         maxTokens = storedMax > 0 ? storedMax : 4096
         closeOnFocusLoss = UserDefaults.standard.bool(forKey: "closeOnFocusLoss")
         autoCopyLastResponse = UserDefaults.standard.bool(forKey: "autoCopyLastResponse")
+        panelSizePreset = PanelSizePreset(rawValue: UserDefaults.standard.string(forKey: "panelSizePreset") ?? "") ?? .medium
         systemPrompt = Self.loadSystemPromptFromDisk()
     }
 
@@ -191,6 +251,11 @@ final class PreferencesStore: ObservableObject {
     func setAutoCopyLastResponse(_ value: Bool) {
         autoCopyLastResponse = value
         defaults.set(value, forKey: "autoCopyLastResponse")
+    }
+
+    func setPanelSizePreset(_ preset: PanelSizePreset) {
+        panelSizePreset = preset
+        defaults.set(preset.rawValue, forKey: "panelSizePreset")
     }
 
     // MARK: - Ollama

@@ -84,7 +84,7 @@ struct OnboardingView: View {
                 .padding(.vertical, 14)
             }
         }
-        .background(.ultraThinMaterial)
+        .glassEffect()
         .onDisappear { axTimer?.invalidate() }
     }
 

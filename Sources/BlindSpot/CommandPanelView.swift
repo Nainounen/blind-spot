@@ -605,109 +605,124 @@ private struct ConversationArea: View {
     var onFollowUp: (String) -> Void
     var onCancel: () -> Void
     var onClose: () -> Void
+    var isCompact: Bool = false
     @FocusState private var inputFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Conversation scroll
-            if vm.turns.isEmpty && !vm.isLoading {
-                emptyState
-            } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 16) {
-                            ForEach(Array(vm.turns.enumerated()), id: \.offset) { idx, turn in
-                                TurnView(
-                                    turn: turn,
-                                    isLast: idx == vm.turns.count - 1,
-                                    isLoading: vm.isLoading,
-                                    errorMessage: vm.errorMessage,
-                                    isFirst: idx == 0
-                                )
-                                if idx < vm.turns.count - 1 {
-                                    Divider().opacity(0.5)
-                                }
-                            }
-
-                            if vm.turns.isEmpty && vm.isLoading {
-                                HStack(spacing: 8) {
-                                    ProgressView().scaleEffect(0.7)
-                                    Text("Thinking…").font(.callout).foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                        .padding(16)
-                        .padding(.bottom, 8)
-
-                        Color.clear.frame(height: 1).id("bottom")
-                    }
-                    .onChange(of: vm.turns.count) { _, _ in
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            proxy.scrollTo("bottom", anchor: .bottom)
-                        }
-                    }
-                    .onChange(of: vm.turns.last?.response) { _, _ in
-                        proxy.scrollTo("bottom", anchor: .bottom)
-                    }
-                }
+        let hasContent = !vm.turns.isEmpty || vm.isLoading
+        if isCompact && !hasContent {
+            // XS empty: just the input bar, vertically centered
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                inputBar
+                Spacer(minLength: 0)
             }
-
-            Divider()
-
-            // Follow-up bar
-            HStack(alignment: .center, spacing: 10) {
-                ZStack(alignment: .topLeading) {
-                    TextEditor(text: $vm.followUpText)
-                        .font(.system(size: 13))
-                        .frame(height: followUpHeight)
-                        .scrollContentBackground(.hidden)
-                        .focused($inputFocused)
-                        .onKeyPress(keys: [.return], phases: .down) { press in
-                            if press.modifiers.contains(.shift) { return .ignored }
-                            submit()
-                            return .handled
-                        }
-                        .onChange(of: vm.focusInput) { _, newValue in
-                            if newValue {
-                                inputFocused = true
-                                vm.focusInput = false
-                            }
-                        }
-
-                    if vm.followUpText.isEmpty {
-                        Text(vm.turns.isEmpty ? "Ask anything…" : "Ask a follow-up…")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.tertiary)
-                            .padding(.leading, 5)
-                            .padding(.top, 2)
-                            .allowsHitTesting(false)
-                    }
-                }
-
-                if vm.isLoading {
-                    Button(action: onCancel) {
-                        Image(systemName: "stop.circle.fill")
-                            .font(.title3)
-                            .foregroundStyle(Color.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Stop generating (Ctrl+C)")
+        } else {
+            VStack(spacing: 0) {
+                if hasContent {
+                    conversationScroll
                 } else {
-                    Button(action: submit) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.title3)
-                            .foregroundStyle(
-                                vm.followUpText.trimmingCharacters(in: .whitespaces).isEmpty
-                                    ? Color.secondary : Color.accentColor
-                            )
+                    emptyState
+                }
+                Divider()
+                inputBar
+            }
+        }
+    }
+
+    private var conversationScroll: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    ForEach(Array(vm.turns.enumerated()), id: \.offset) { idx, turn in
+                        TurnView(
+                            turn: turn,
+                            isLast: idx == vm.turns.count - 1,
+                            isLoading: vm.isLoading,
+                            errorMessage: vm.errorMessage,
+                            isFirst: idx == 0
+                        )
+                        if idx < vm.turns.count - 1 {
+                            Divider().opacity(0.5)
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .disabled(vm.followUpText.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                    if vm.turns.isEmpty && vm.isLoading {
+                        HStack(spacing: 8) {
+                            ProgressView().scaleEffect(0.7)
+                            Text("Thinking…").font(.callout).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(isCompact ? 12 : 16)
+                .padding(.bottom, 8)
+
+                Color.clear.frame(height: 1).id("bottom")
+            }
+            .onChange(of: vm.turns.count) { _, _ in
+                withAnimation(.easeOut(duration: 0.15)) {
+                    proxy.scrollTo("bottom", anchor: .bottom)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            .onChange(of: vm.turns.last?.response) { _, _ in
+                proxy.scrollTo("bottom", anchor: .bottom)
+            }
         }
+    }
+
+    private var inputBar: some View {
+        HStack(alignment: .center, spacing: 10) {
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $vm.followUpText)
+                    .font(.system(size: 13))
+                    .frame(height: followUpHeight)
+                    .scrollContentBackground(.hidden)
+                    .focused($inputFocused)
+                    .onKeyPress(keys: [.return], phases: .down) { press in
+                        if press.modifiers.contains(.shift) { return .ignored }
+                        submit()
+                        return .handled
+                    }
+                    .onChange(of: vm.focusInput) { _, newValue in
+                        if newValue {
+                            inputFocused = true
+                            vm.focusInput = false
+                        }
+                    }
+
+                if vm.followUpText.isEmpty {
+                    Text(vm.turns.isEmpty ? "Ask anything…" : "Ask a follow-up…")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.tertiary)
+                        .padding(.leading, 5)
+                        .padding(.top, 2)
+                        .allowsHitTesting(false)
+                }
+            }
+
+            if vm.isLoading {
+                Button(action: onCancel) {
+                    Image(systemName: "stop.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(Color.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Stop generating (Ctrl+C)")
+            } else {
+                Button(action: submit) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(
+                            vm.followUpText.trimmingCharacters(in: .whitespaces).isEmpty
+                                ? Color.secondary : Color.accentColor
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(vm.followUpText.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
     }
 
     private var followUpHeight: CGFloat {
@@ -834,12 +849,42 @@ struct CommandPanelView: View {
 
     @State private var conversations: [Conversation] = []
     @State private var folders: [Folder] = []
+    @ObservedObject private var prefs = PreferencesStore.shared
 
     private let sidebarWidth: CGFloat = 200
 
     var body: some View {
+        Group {
+            if prefs.panelSizePreset == .xs {
+                xsLayout
+            } else {
+                standardLayout
+            }
+        }
+        .onAppear { reload() }
+        .onReceive(NotificationCenter.default.publisher(for: .conversationsDidUpdate)) { _ in
+            reload()
+        }
+    }
+
+    // MARK: - XS compact layout (no sidebar, no status bar)
+
+    private var xsLayout: some View {
+        ConversationArea(
+            vm: vm,
+            onFollowUp: onFollowUp,
+            onCancel: onCancel,
+            onClose: onClose,
+            isCompact: true
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: - Standard layout (sidebar + conversation + status bar)
+
+    private var standardLayout: some View {
         HStack(spacing: 0) {
-            // Sidebar
             SidebarView(
                 vm: vm,
                 conversations: conversations,
@@ -858,7 +903,6 @@ struct CommandPanelView: View {
 
             Divider()
 
-            // Main content
             VStack(spacing: 0) {
                 ConversationArea(
                     vm: vm,
@@ -871,16 +915,7 @@ struct CommandPanelView: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
-        )
-        .onAppear { reload() }
-        .onReceive(NotificationCenter.default.publisher(for: .conversationsDidUpdate)) { _ in
-            reload()
-        }
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
     }
 
     @MainActor private func reload() {
