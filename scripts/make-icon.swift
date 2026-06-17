@@ -1,14 +1,46 @@
 #!/usr/bin/env swift
-// Generates BlindSpot.icns — no external dependencies, uses only built-in macOS frameworks.
-// Run: swift make-icon.swift
+// Generates BlindSpot.icns — no external dependencies, uses only built-in
+// macOS frameworks (NSImage SVG support on macOS 26+).
+// Also generates the menu bar template icon (PDF + PNG).
+//
+// Source priority:
+//   1. assets/blindspot.svg — vector design source (if available)
+//   2. assets/BlindSpot.icns   — extracts 1024px rep from existing icns
+//
+// Run: swift scripts/make-icon.swift
 
 import AppKit
 import Foundation
 
-// MARK: - Draw one size
+let fm = FileManager.default
+let repo = URL(fileURLWithPath: fm.currentDirectoryPath)
+let assetsDir = repo.appendingPathComponent("assets")
+
+// MARK: - Load source image
+
+let svgPath = assetsDir.appendingPathComponent("blindspot.svg").path
+let icnsPath = assetsDir.appendingPathComponent("BlindSpot.icns").path
+
+let sourceImage: NSImage
+let sourceDescription: String
+
+if fm.fileExists(atPath: svgPath), let img = NSImage(contentsOfFile: svgPath) {
+    sourceImage = img
+    sourceDescription = "SVG (assets/blindspot.svg)"
+} else if fm.fileExists(atPath: icnsPath), let img = NSImage(contentsOfFile: icnsPath) {
+    sourceImage = img
+    sourceDescription = "existing ICNS (assets/BlindSpot.icns)"
+} else {
+    fputs("Error: no source found — place blindspot.svg in assets/ or run after a prior build\n", stderr)
+    exit(1)
+}
+
+// MARK: - Render at a given pixel size
 
 func render(size: Int) -> Data {
     let s = CGFloat(size)
+    let rect = CGRect(x: 0, y: 0, width: s, height: s)
+
     let bmp = NSBitmapImageRep(
         bitmapDataPlanes: nil,
         pixelsWide: size, pixelsHigh: size,
@@ -20,78 +52,17 @@ func render(size: Int) -> Data {
 
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bmp)
-    let ctx = NSGraphicsContext.current!.cgContext
 
-    // ── Rounded rect clip (macOS icon shape) ──────────────────────────────────
+    // Rounded-rect clip for macOS icon shape
     let r = s * 0.224
-    ctx.addPath(CGPath(roundedRect: CGRect(x: 0, y: 0, width: s, height: s),
-                       cornerWidth: r, cornerHeight: r, transform: nil))
-    ctx.clip()
-
-    // ── Purple gradient background ────────────────────────────────────────────
-    let space = CGColorSpaceCreateDeviceRGB()
-    let gradient = CGGradient(
-        colorsSpace: space,
-        colors: [
-            CGColor(colorSpace: space, components: [0.55, 0.36, 0.97, 1.0])!,  // #8C5CF7 top-left
-            CGColor(colorSpace: space, components: [0.20, 0.06, 0.45, 1.0])!,  // #340F73 bottom-right
-        ] as CFArray,
-        locations: [0.0, 1.0]
-    )!
-    ctx.drawLinearGradient(
-        gradient,
-        start: CGPoint(x: 0, y: s),
-        end:   CGPoint(x: s, y: 0),
-        options: []
+    let clipPath = CGPath(
+        roundedRect: CGRect(x: 0, y: 0, width: s, height: s),
+        cornerWidth: r, cornerHeight: r, transform: nil
     )
+    NSGraphicsContext.current!.cgContext.addPath(clipPath)
+    NSGraphicsContext.current!.cgContext.clip()
 
-    // ── Eye outline ───────────────────────────────────────────────────────────
-    let eyeL  = s * 0.16
-    let eyeR  = s * 0.84
-    let eyeCy = s * 0.50
-    let bulge = s * 0.22   // how tall the eye arcs are
-
-    ctx.setStrokeColor(CGColor(colorSpace: space, components: [1, 1, 1, 0.88])!)
-    ctx.setLineWidth(s * 0.055)
-    ctx.setLineCap(.round)
-
-    // upper arc
-    let top = CGMutablePath()
-    top.move(to: CGPoint(x: eyeL, y: eyeCy))
-    top.addQuadCurve(
-        to:      CGPoint(x: eyeR,  y: eyeCy),
-        control: CGPoint(x: s / 2, y: eyeCy + bulge)
-    )
-    ctx.addPath(top); ctx.strokePath()
-
-    // lower arc
-    let bot = CGMutablePath()
-    bot.move(to: CGPoint(x: eyeL, y: eyeCy))
-    bot.addQuadCurve(
-        to:      CGPoint(x: eyeR,  y: eyeCy),
-        control: CGPoint(x: s / 2, y: eyeCy - bulge)
-    )
-    ctx.addPath(bot); ctx.strokePath()
-
-    // ── 4-pointed sparkle (star) ──────────────────────────────────────────────
-    let cx     = s * 0.50
-    let cy     = s * 0.50
-    let outer  = s * 0.165   // tip length
-    let inner  = s * 0.038   // waist width
-
-    let star = CGMutablePath()
-    for i in 0..<8 {
-        let angle  = CGFloat(i) * .pi / 4.0 - .pi / 2.0
-        let radius = i % 2 == 0 ? outer : inner
-        let pt = CGPoint(x: cx + cos(angle) * radius,
-                         y: cy + sin(angle) * radius)
-        if i == 0 { star.move(to: pt) } else { star.addLine(to: pt) }
-    }
-    star.closeSubpath()
-
-    ctx.setFillColor(CGColor(colorSpace: space, components: [1, 1, 1, 0.97])!)
-    ctx.addPath(star)
-    ctx.fillPath()
+    sourceImage.draw(in: rect, from: .zero, operation: .copy, fraction: 1.0)
 
     NSGraphicsContext.restoreGraphicsState()
 
@@ -103,7 +74,7 @@ func render(size: Int) -> Data {
 
 // MARK: - Iconset layout
 
-let specs: [(file: String, size: Int)] = [
+let iconSpecs: [(file: String, size: Int)] = [
     ("icon_16x16.png",      16),
     ("icon_16x16@2x.png",   32),
     ("icon_32x32.png",      32),
@@ -116,32 +87,115 @@ let specs: [(file: String, size: Int)] = [
     ("icon_512x512@2x.png", 1024),
 ]
 
-// MARK: - Main
+// MARK: - Generate App Icon
 
-let fm  = FileManager.default
-let dir = URL(fileURLWithPath: "assets/BlindSpot.iconset")
-try? fm.removeItem(at: dir)
-try  fm.createDirectory(at: dir, withIntermediateDirectories: true)
+print("Generating BlindSpot.icns from \(sourceDescription)…")
 
-// Cache renders (multiple specs share the same pixel size)
+let iconsetDir = assetsDir.appendingPathComponent("BlindSpot.iconset")
+try? fm.removeItem(at: iconsetDir)
+try fm.createDirectory(at: iconsetDir, withIntermediateDirectories: true)
+
 var cache: [Int: Data] = [:]
-for spec in specs {
+for spec in iconSpecs {
     if cache[spec.size] == nil { cache[spec.size] = render(size: spec.size) }
-    try cache[spec.size]!.write(to: dir.appendingPathComponent(spec.file))
+    try cache[spec.size]!.write(to: iconsetDir.appendingPathComponent(spec.file))
     print("  ✓ \(spec.file)")
 }
 
-// Convert to ICNS
-let result = Process()
-result.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
-result.arguments = ["-c", "icns", "assets/BlindSpot.iconset", "--output", "assets"]
-try result.run(); result.waitUntilExit()
+// Convert iconset → icns
+let iconutil = Process()
+iconutil.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
+iconutil.arguments = ["-c", "icns", iconsetDir.path, "-o", icnsPath]
+try iconutil.run()
+iconutil.waitUntilExit()
 
-try? fm.removeItem(at: dir)
+try? fm.removeItem(at: iconsetDir)
 
-if result.terminationStatus == 0 {
-    print("\n✓ BlindSpot.icns created")
-    print("  Copy it to your app bundle: cp BlindSpot.icns BlindSpot.app/Contents/Resources/")
+if iconutil.terminationStatus == 0 {
+    print("  ✓ BlindSpot.icns created")
 } else {
-    print("iconutil failed — iconset left in BlindSpot.iconset/")
+    fputs("Error: iconutil failed\n", stderr)
+    exit(1)
+}
+
+// MARK: - Generate Menu Bar Template Icon
+// Uses assets/menu-bar-icon.svg — a hand-crafted template with the four
+// corner shapes + centered sparkle star. Edit that SVG to tweak the icon.
+
+print("\nMenu bar template icon:")
+
+let menuBarSvgPath = assetsDir.appendingPathComponent("menu-bar-icon.svg").path
+if fm.fileExists(atPath: menuBarSvgPath),
+   let mbImage = NSImage(contentsOfFile: menuBarSvgPath) {
+
+    let sizes: [(file: String, px: Int)] = [
+        ("menu-bar-icon@2x.png", 48),
+        ("menu-bar-icon.png",    24),
+    ]
+    for s in sizes {
+        guard let png = imgToPNG(mbImage, size: s.px) else {
+            fputs("  ⚠ Failed to render \(s.file)\n", stderr)
+            exit(1)
+        }
+        try png.write(to: assetsDir.appendingPathComponent(s.file))
+    }
+
+    if let pdf = createTemplatePDF(from: mbImage, size: NSSize(width: 24, height: 24)) {
+        try pdf.write(to: assetsDir.appendingPathComponent("menu-bar-icon.pdf"))
+    }
+
+    // Copy to Resources
+    let resourcesDir = repo.appendingPathComponent("Sources/BlindSpot/Resources")
+    for file in ["menu-bar-icon.pdf", "menu-bar-icon.png", "menu-bar-icon@2x.png"] {
+        let dest = resourcesDir.appendingPathComponent(file)
+        try? fm.removeItem(at: dest)
+        try? fm.copyItem(at: assetsDir.appendingPathComponent(file), to: dest)
+    }
+
+    print("  ✓ menu-bar-icon.pdf (24pt)")
+    print("  ✓ menu-bar-icon.png (24px)")
+    print("  ✓ menu-bar-icon@2x.png (48px)")
+    print("  ✓ Copied to Sources/BlindSpot/Resources/")
+} else {
+    print("  ⚠ No assets/menu-bar-icon.svg — skipping menu bar icon")
+}
+
+print("\n✓ Icon generation complete")
+
+
+// MARK: - Helpers
+
+func imgToPNG(_ image: NSImage, size: Int) -> Data? {
+    let bmp = NSBitmapImageRep(
+        bitmapDataPlanes: nil,
+        pixelsWide: size, pixelsHigh: size,
+        bitsPerSample: 8, samplesPerPixel: 4,
+        hasAlpha: true, isPlanar: false,
+        colorSpaceName: .calibratedRGB, bytesPerRow: 0, bitsPerPixel: 0
+    )!
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bmp)
+    image.draw(in: CGRect(x: 0, y: 0, width: CGFloat(size), height: CGFloat(size)),
+               from: .zero, operation: .copy, fraction: 1.0)
+    NSGraphicsContext.restoreGraphicsState()
+    return bmp.representation(using: .png, properties: [:])
+}
+
+/// Creates a PDF data blob containing the template image at the given size.
+func createTemplatePDF(from image: NSImage, size: NSSize) -> Data? {
+    let pdfData = NSMutableData()
+    var mediaBox = CGRect(origin: .zero, size: size)
+    guard let consumer = CGDataConsumer(data: pdfData as CFMutableData),
+          let ctx = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else { return nil }
+
+    ctx.beginPDFPage(nil)
+    NSGraphicsContext.saveGraphicsState()
+    let nsCtx = NSGraphicsContext(cgContext: ctx, flipped: false)
+    NSGraphicsContext.current = nsCtx
+    image.draw(in: mediaBox, from: .zero, operation: .copy, fraction: 1.0)
+    NSGraphicsContext.restoreGraphicsState()
+    ctx.endPDFPage()
+    ctx.closePDF()
+
+    return pdfData as Data
 }

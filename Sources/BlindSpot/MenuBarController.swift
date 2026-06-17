@@ -18,8 +18,17 @@ final class MenuBarController {
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let btn = statusItem.button {
-            btn.image = NSImage(systemSymbolName: "sparkle", accessibilityDescription: "BlindSpot")
-            btn.image?.isTemplate = true
+            // Menu bar is ~24pt tall; icon sized to match
+            if let path = Bundle.module.path(forResource: "menu-bar-icon@2x", ofType: "png"),
+               let icon = NSImage(contentsOfFile: path) {
+                icon.isTemplate = true
+                icon.size = NSSize(width: 24, height: 24)
+                btn.image = icon
+            } else {
+                let img = NSImage(systemSymbolName: "sparkle", accessibilityDescription: "BlindSpot")
+                img?.isTemplate = true
+                btn.image = img
+            }
         }
         rebuildMenu()
 
