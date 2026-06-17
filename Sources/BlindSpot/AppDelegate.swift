@@ -31,10 +31,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ghostWindow = ghost
 
         // Auto-update via Sparkle. SUFeedURL and SUPublicEDKey must be set in Info.plist.
+        // Pass self as userDriverDelegate so we can activate the app when Sparkle's
+        // update window appears — LSUIElement apps never become frontmost on their own,
+        // so without this the Updater.app window appears behind other apps and button
+        // clicks (including "Install and Relaunch") are swallowed by the foreground app.
         updaterController = SPUStandardUpdaterController(
             startingUpdater: true,
             updaterDelegate: nil,
-            userDriverDelegate: nil
+            userDriverDelegate: self
         )
 
         // Boot data-layer singletons (triggers migration if first launch)
@@ -236,5 +240,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(editItem)
         return menu
+    }
+}
+
+// MARK: - SPUStandardUserDriverDelegate
+
+extension AppDelegate: SPUStandardUserDriverDelegate {
+    // Activate so the Updater.app window comes to front and receives clicks.
+    // Without this, LSUIElement apps never become frontmost, the "Install and
+    // Relaunch" button is unreachable, and the update silently does nothing.
+    nonisolated func standardUserDriverWillHandleShowingUpdate(
+        _ handleShowingUpdate: Bool,
+        forUpdate update: SUAppcastItem,
+        state: SPUUserUpdateState
+    ) {
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 }
