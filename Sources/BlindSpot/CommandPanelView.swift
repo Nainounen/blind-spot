@@ -878,7 +878,6 @@ struct CommandPanelView: View {
             isCompact: true
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Standard layout (sidebar + conversation + status bar)
@@ -915,7 +914,6 @@ struct CommandPanelView: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
     }
 
     @MainActor private func reload() {
