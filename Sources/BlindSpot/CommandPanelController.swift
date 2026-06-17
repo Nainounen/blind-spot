@@ -286,7 +286,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         p.isMovableByWindowBackground = true
         p.delegate = self
 
-        p.contentView = NSHostingView(rootView:
+        let hostingView = NSHostingView(rootView:
             CommandPanelView(
                 vm: vm,
                 onClose: { [weak self] in self?.hide() },
@@ -296,6 +296,12 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
                 onCancel: { [weak self] in self?.cancelStream() }
             )
         )
+
+        let glassView = NSGlassEffectView()
+        glassView.cornerRadius = 16
+        glassView.clipsToBounds = true
+        glassView.contentView = hostingView
+        p.contentView = glassView
 
         // Position: centered horizontally, 55% from bottom of screen
         let x = screen.frame.origin.x + (screen.frame.width - width) / 2
