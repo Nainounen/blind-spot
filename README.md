@@ -10,8 +10,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/github/v/release/Nainounen/blind-spot?style=flat-square&color=111111&label=release" alt="Latest Release">
-  <img src="https://img.shields.io/badge/macOS-15%2B-111111?style=flat-square&logo=apple" alt="macOS">
-  <img src="https://img.shields.io/badge/Swift-5.9-111111?style=flat-square&logo=swift" alt="Swift">
+  <img src="https://img.shields.io/badge/macOS-26%2B-111111?style=flat-square&logo=apple" alt="macOS">
+  <img src="https://img.shields.io/badge/Swift-6.2-111111?style=flat-square&logo=swift" alt="Swift">
   <img src="https://img.shields.io/badge/license-MIT-111111?style=flat-square" alt="License">
 </p>
 
@@ -28,7 +28,7 @@ Select any text, press **⌘⇧Space**, and an answer streams back in a floating
 
 BlindSpot is signed with an Apple Developer ID and notarized by Apple, so it opens without any Gatekeeper warnings.
 
-**Requires macOS 14 Sonoma or later. Works on Apple Silicon and Intel.**
+**Requires macOS 26 or later. Works on Apple Silicon and Intel.**
 
 ---
 
