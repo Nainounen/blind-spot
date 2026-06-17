@@ -2,7 +2,7 @@
 
 ## Known issues
 
-- **DeepSeek V4 vision**: Returns HTTP 400 when sending images via the OpenAI-compatible endpoint. The API docs claim support for `image_url` content blocks, but in practice the request is rejected. Possibly a model name issue (deepseek-v4-flash vs deepseek-chat), a beta limitation, or a format quirk. Needs further investigation — test with `deepseek-v4-pro` or try the Anthropic-compatible endpoint.
+- **DeepSeek V4 vision — NOT SUPPORTED**: DeepSeek's own documentation states "DeepSeek V4 is text-only" (confirmed via Copilot integration guide). Their Anthropic compatibility table explicitly marks `type:"image"` as "Not Supported". The `deepseek-v4-pro` and `deepseek-v4-flash` models at `/v1/chat/completions` do NOT accept images — attempting to send OpenAI-format `image_url` content blocks results in HTTP 400. A separate `deepseek-v4-vision` model exists but is not accessible via the standard chat endpoint and may not be publicly available. Third-party platforms claiming "V4 Vision" (OpenRouter, MindStudio) proxy images through separate vision models, not through DeepSeek V4 itself. `supportsVision` is set to `false` for DeepSeek in Config.swift.
 
 ## Done
 
