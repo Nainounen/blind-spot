@@ -32,7 +32,7 @@ permissions:
 jobs:
   build:
     name: Build & Release
-    runs-on: macos-14
+    runs-on: macos-26
     outputs:
       version:  ${{ steps.meta.outputs.version }}
       sha256:   ${{ steps.sha.outputs.sha256 }}
@@ -73,14 +73,12 @@ jobs:
             echo "skipped=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # Pin Xcode so a future runner image bump can't silently turn new
-      # concurrency warnings into release-blocking errors. Update this when
-      # you've validated a newer Xcode locally.
+      # Pin Xcode 26 — required for swift-tools-version 6.2 and macOS 26 target.
       - name: Select Xcode
         if: steps.check.outputs.skipped == 'false'
         run: |
-          if [ -d /Applications/Xcode_16.app ]; then
-            sudo xcode-select -s /Applications/Xcode_16.app
+          if [ -d /Applications/Xcode_26.app ]; then
+            sudo xcode-select -s /Applications/Xcode_26.app
           fi
           xcodebuild -version
           swift --version
@@ -208,7 +206,7 @@ jobs:
               strategy :github_latest
             end
 
-            depends_on macos: ">= :sonoma"
+            depends_on macos: ">= :tahoe"
 
             app "BlindSpot.app"
 
