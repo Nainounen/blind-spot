@@ -8,6 +8,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var panicHotkeyManager: HotkeyManager?
     private var autoAnswerHotkeyManager: HotkeyManager?
     private var answerAllHotkeyManager: HotkeyManager?
+    private var visualContextHotkeyManager: HotkeyManager?
     private var menuBarController: MenuBarController?
     private var onboardingController = OnboardingWindowController()
     private var settingsController = SettingsWindowController()
@@ -76,6 +77,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         answerAllManager.start()
         answerAllHotkeyManager = answerAllManager
+
+        // Visual context hotkey (⌘⇧⌥Space) — captures selected text + screenshot
+        let visualContextManager = HotkeyManager(
+            hotkey: Hotkey(
+                keyCode: 49,
+                modifiers: NSEvent.ModifierFlags([.command, .shift, .option]).rawValue
+            )
+        ) { [weak self] in
+            self?.handleVisualContextHotkey()
+        }
+        visualContextManager.start()
+        visualContextHotkeyManager = visualContextManager
 
         // Live-update the tap when the user changes the hotkey in Settings.
         PreferencesStore.shared.$hotkey
@@ -167,6 +180,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         TextCapture.getSelectedText { [weak self] text in
             DispatchQueue.main.async {
                 self?.showPanel(query: text ?? "")
+            }
+        }
+    }
+
+    private func handleVisualContextHotkey() {
+        guard PreferencesStore.shared.onboardingComplete else { return }
+
+        // Capture AX bounds synchronously before any async work — the focused
+        // element may shift once Cmd+E / Cmd+C events fire.
+        let fallbackBounds = ScreenshotCapture.selectionOrMouseBounds()
+
+        TextCapture.getSelectedTextWithBounds { result in
+            let query = result?.text ?? ""
+            let rect = result?.selectionBounds ?? fallbackBounds
+            Task { @MainActor in
+                let imageData = await ScreenshotCapture.captureRegion(rect)
+                CommandPanelController.shared.show(query: query.isEmpty ? nil : query, image: imageData)
             }
         }
     }

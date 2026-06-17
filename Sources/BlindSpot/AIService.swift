@@ -64,7 +64,9 @@ enum AIService {
         let key = apiKey(for: profile.provider)
         guard !key.isEmpty else { throw Error.missingAPIKey(profile.provider) }
 
-        let apiMessages = messages.map { ["role": $0.role.rawValue, "content": $0.content] }
+        let apiMessages: [[String: Any]] = messages.map {
+            ["role": $0.role.rawValue, "content": openAIContent(for: $0)]
+        }
 
         var req = URLRequest(url: URL(string: endpoint)!)
         req.httpMethod = "POST"
@@ -131,9 +133,9 @@ enum AIService {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let systemText = messages.first(where: { $0.role == .system })?.content
-        let apiMessages = messages
+        let apiMessages: [[String: Any]] = messages
             .filter { $0.role != .system }
-            .map { ["role": $0.role.rawValue, "content": $0.content] }
+            .map { ["role": $0.role.rawValue, "content": anthropicContent(for: $0)] }
 
         var body: [String: Any] = [
             "model": profile.model,
@@ -196,7 +198,7 @@ enum AIService {
             .filter { $0.role != .system }
             .map { m in
                 ["role": m.role == .assistant ? "model" : "user",
-                 "parts": [["text": m.content]]]
+                 "parts": geminiParts(for: m)]
             }
 
         var body: [String: Any] = [
@@ -309,5 +311,34 @@ enum AIService {
                 HTTPURLResponse.localizedString(forStatusCode: http.statusCode)
             )
         }
+    }
+
+    // MARK: - Multimodal content builders
+
+    // OpenAI-compatible: content is a string for text-only, or an array for vision.
+    private static func openAIContent(for msg: ConversationMessage) -> Any {
+        guard let img = msg.image else { return msg.content }
+        return [
+            ["type": "text", "text": msg.content],
+            ["type": "image_url", "image_url": ["url": "data:image/png;base64,\(img.base64PNG)"]],
+        ] as [[String: Any]]
+    }
+
+    // Anthropic: content is a string for text-only, or an array for vision.
+    private static func anthropicContent(for msg: ConversationMessage) -> Any {
+        guard let img = msg.image else { return msg.content }
+        return [
+            ["type": "image", "source": ["type": "base64", "media_type": "image/png", "data": img.base64PNG]],
+            ["type": "text", "text": msg.content],
+        ] as [[String: Any]]
+    }
+
+    // Gemini: parts array always; image as inline_data.
+    private static func geminiParts(for msg: ConversationMessage) -> [[String: Any]] {
+        guard let img = msg.image else { return [["text": msg.content]] }
+        return [
+            ["text": msg.content],
+            ["inline_data": ["mime_type": "image/png", "data": img.base64PNG]],
+        ]
     }
 }

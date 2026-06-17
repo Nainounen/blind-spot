@@ -35,7 +35,58 @@ private let chromiumBundleIDs: Set<String> = [
     "com.sigmaos.sigmaos",
 ]
 
+struct TextCaptureResult {
+    let text: String
+    let selectionBounds: CGRect?
+}
+
 enum TextCapture {
+    /// Like `getSelectedText` but also attempts to capture the on-screen rect of
+    /// the selection via the Accessibility API. `selectionBounds` will be nil for
+    /// Chromium-based apps (AX parameterized bounds are unreliable there) and for
+    /// any app that doesn't expose the attribute.
+    static func getSelectedTextWithBounds(completion: @escaping (TextCaptureResult?) -> Void) {
+        guard let frontApp = NSWorkspace.shared.frontmostApplication else { completion(nil); return }
+        let pid = frontApp.processIdentifier
+        let isChromium = chromiumBundleIDs.contains(frontApp.bundleIdentifier ?? "")
+
+        // Capture bounds synchronously before any async work — the focused element
+        // may change once Cmd+E / Cmd+C is sent.
+        let bounds: CGRect? = isChromium ? nil : nativeBounds(pid: pid)
+
+        getSelectedText { text in
+            guard let t = text, !t.isEmpty else { completion(nil); return }
+            completion(TextCaptureResult(text: t, selectionBounds: bounds))
+        }
+    }
+
+    /// Public entry point used by `ScreenshotCapture` to get AX selection bounds
+    /// without going through the full text-capture flow.
+    static func exposedBoundsForCurrentSelection(pid: pid_t) -> CGRect? {
+        nativeBounds(pid: pid)
+    }
+
+    private static func nativeBounds(pid: pid_t) -> CGRect? {
+        let axApp = AXUIElementCreateApplication(pid)
+        guard let focused = focusedElement(of: axApp) else { return nil }
+        return boundsForSelectedText(of: focused)
+    }
+
+    private static func boundsForSelectedText(of element: AXUIElement) -> CGRect? {
+        var rangeRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeRef) == .success,
+              let rangeVal = rangeRef else { return nil }
+
+        var boundsRef: AnyObject?
+        guard AXUIElementCopyParameterizedAttributeValue(
+            element, kAXBoundsForRangeParameterizedAttribute as CFString, rangeVal as CFTypeRef, &boundsRef
+        ) == .success, let bv = boundsRef else { return nil }
+
+        var rect = CGRect.zero
+        guard AXValueGetValue(bv as! AXValue, .cgRect, &rect) else { return nil }
+        return rect
+    }
+
     static func getSelectedText(completion: @escaping (String?) -> Void) {
         guard let frontApp = NSWorkspace.shared.frontmostApplication else { completion(nil); return }
 

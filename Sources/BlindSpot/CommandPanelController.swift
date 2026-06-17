@@ -30,7 +30,9 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
     /// Show the panel. If `query` is non-nil and non-empty, immediately starts a
     /// new conversation with that text (selected-text hotkey flow). If nil or empty,
     /// opens the panel in free-form mode so the user can type.
-    func show(query: String?) {
+    /// Pass `image` (PNG data) to attach a screenshot to the first turn; only sent
+    /// when the active provider supports vision.
+    func show(query: String?, image: Data? = nil) {
         previousApp = NSWorkspace.shared.frontmostApplication
         buildPanelIfNeeded()
         resizePanel(animated: false, reposition: true)
@@ -46,7 +48,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         installKeyMonitor()
 
         if let q = query, !q.isEmpty {
-            startTurn(userText: q)
+            startTurn(userText: q, image: image)
         } else {
             vm.focusInput = true
         }
@@ -132,7 +134,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
 
     // MARK: - Conversation / streaming
 
-    private func startTurn(userText: String) {
+    private func startTurn(userText: String, image: Data? = nil) {
         let profile = ProfilesStore.shared.activeProfile
 
         // Inject system prompt on first turn
@@ -141,8 +143,12 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
                 ConversationMessage(role: .system, content: profile.systemPrompt)
             )
         }
+        // Attach screenshot only when provider supports vision
+        let attachment: ConversationMessage.ImageAttachment? = (image != nil && profile.provider.supportsVision)
+            ? ConversationMessage.ImageAttachment(base64PNG: image!.base64EncodedString())
+            : nil
         vm.activeConversation?.messages.append(
-            ConversationMessage(role: .user, content: userText)
+            ConversationMessage(role: .user, content: userText, image: attachment)
         )
 
         let turnIndex = vm.turns.count

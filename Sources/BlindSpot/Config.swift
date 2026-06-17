@@ -35,6 +35,13 @@ enum Provider: String, CaseIterable, Codable {
 
     var requiresKey: Bool { self != .ollama }
 
+    var supportsVision: Bool {
+        switch self {
+        case .openai, .anthropic, .gemini, .grok, .deepseek, .openrouter: return true
+        case .ollama: return false
+        }
+    }
+
     var supportsThinking: Bool {
         switch self {
         case .openai, .anthropic, .deepseek, .grok, .openrouter: return true
