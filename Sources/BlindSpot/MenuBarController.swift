@@ -52,9 +52,6 @@ final class MenuBarController {
     func rebuildMenu() {
         let menu = NSMenu()
 
-        let title = NSMenuItem(title: "BlindSpot", action: nil, keyEquivalent: "")
-        title.isEnabled = false
-        menu.addItem(title)
         menu.addItem(.separator())
 
         // Profiles submenu
