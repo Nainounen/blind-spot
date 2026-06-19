@@ -1060,49 +1060,47 @@ private struct ProfileEditorView: View {
                 }
 
                 // Vision overrides (for visual context requests via ⌘⇧⌥Space)
-                if draft.provider.supportsVision || draft.visionProvider != nil {
-                    VStack(alignment: .leading, spacing: 10) {
-                        fieldLabel("Visual Context (⌘⇧⌥Space)")
+                VStack(alignment: .leading, spacing: 10) {
+                    fieldLabel("Visual Context (⌘⇧⌥Space)")
 
-                        HStack(spacing: 8) {
-                            Text("Provider").font(.caption).foregroundStyle(.secondary).frame(width: 55, alignment: .leading)
-                            Picker("", selection: Binding(
-                                get: { draft.visionProvider ?? draft.provider },
-                                set: { p in
-                                    draft.visionProvider = p == draft.provider ? nil : p
-                                    isDirty = true
-                                }
-                            )) {
-                                Text("Same as text").tag(draft.provider)
-                                ForEach(Provider.allCases.filter { $0.supportsVision }, id: \.rawValue) { p in
-                                    Text(p.displayName).tag(p)
-                                }
+                    HStack(spacing: 8) {
+                        Text("Provider").font(.caption).foregroundStyle(.secondary).frame(width: 55, alignment: .leading)
+                        Picker("", selection: Binding(
+                            get: { draft.visionProvider ?? draft.provider },
+                            set: { p in
+                                draft.visionProvider = p == draft.provider ? nil : p
+                                isDirty = true
                             }
-                            .pickerStyle(.menu)
-                            .labelsHidden()
+                        )) {
+                            Text(draft.provider.supportsVision ? "Same as text" : "None (not supported)").tag(draft.provider)
+                            ForEach(Provider.allCases.filter { $0.supportsVision }, id: \.rawValue) { p in
+                                Text(p.displayName).tag(p)
+                            }
                         }
-
-                        HStack(spacing: 8) {
-                            Text("Model").font(.caption).foregroundStyle(.secondary).frame(width: 55, alignment: .leading)
-                            TextField("Default for provider", text: Binding(
-                                get: { draft.visionModel ?? "" },
-                                set: { v in
-                                    draft.visionModel = v.isEmpty ? nil : v
-                                    isDirty = true
-                                }
-                            ))
-                            .textFieldStyle(.plain)
-                            .glassField()
-                        }
-
-                        Text("Use a different provider or model for screenshot requests. For example, route via Gemini for vision even when your text queries go through DeepSeek.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        .pickerStyle(.menu)
+                        .labelsHidden()
                     }
-                    .padding(14)
-                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+
+                    HStack(spacing: 8) {
+                        Text("Model").font(.caption).foregroundStyle(.secondary).frame(width: 55, alignment: .leading)
+                        TextField("Default for provider", text: Binding(
+                            get: { draft.visionModel ?? "" },
+                            set: { v in
+                                draft.visionModel = v.isEmpty ? nil : v
+                                isDirty = true
+                            }
+                        ))
+                        .textFieldStyle(.plain)
+                        .glassField()
+                    }
+
+                    Text("Use a different provider or model for screenshot requests. For example, route via Gemini for vision even when your text queries go through DeepSeek.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
+                .padding(14)
+                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
 
                 // System Prompt
                 VStack(alignment: .leading, spacing: 5) {
