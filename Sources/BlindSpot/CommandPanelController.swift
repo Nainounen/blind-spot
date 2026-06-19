@@ -158,7 +158,8 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
             )
         }
         // Attach screenshot only when provider supports vision
-        let attachment: ConversationMessage.ImageAttachment? = (image != nil && profile.provider.supportsVision)
+        let effectiveVisionProvider = profile.visionProvider ?? profile.provider
+        let attachment: ConversationMessage.ImageAttachment? = (image != nil && effectiveVisionProvider.supportsVision)
             ? ConversationMessage.ImageAttachment(base64PNG: image!.base64EncodedString())
             : nil
         vm.activeConversation?.messages.append(

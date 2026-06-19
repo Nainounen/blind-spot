@@ -996,10 +996,14 @@ private struct ProfileEditorView: View {
     var onSave: (AIProfile) -> Void
     var onActivate: () -> Void
 
-    @State private var isDirty: Bool = false
     @State private var isActiveProfile: Bool = false
     @State private var ollamaModels: [OllamaService.Model] = []
     @State private var ollamaLoading: Bool = false
+
+    private func autosave() {
+        guard !draft.name.isEmpty, !draft.model.isEmpty else { return }
+        onSave(draft)
+    }
 
     private var temperatureDisabled: Bool {
         draft.thinkingEnabled && draft.provider != .anthropic
@@ -1015,7 +1019,7 @@ private struct ProfileEditorView: View {
                     TextField("Profile name", text: $draft.name)
                         .textFieldStyle(.plain)
                         .glassField()
-                        .onChange(of: draft.name) { _, _ in isDirty = true }
+                        .onChange(of: draft.name) { _, _ in autosave() }
                 }
 
                 // Provider + Model
@@ -1027,7 +1031,7 @@ private struct ProfileEditorView: View {
                             set: { p in
                                 draft.provider = p
                                 draft.model = p.defaultModel
-                                isDirty = true
+                                autosave()
                             }
                         )) {
                             ForEach(Provider.allCases, id: \.rawValue) { p in
@@ -1044,7 +1048,7 @@ private struct ProfileEditorView: View {
                             TextField("Model identifier", text: $draft.model)
                                 .textFieldStyle(.plain)
                                 .glassField()
-                                .onChange(of: draft.model) { _, _ in isDirty = true }
+                                .onChange(of: draft.model) { _, _ in autosave() }
                         }
                     }
                 }
@@ -1055,7 +1059,7 @@ private struct ProfileEditorView: View {
                     ollamaLoading = false
                     if !ollamaModels.isEmpty && !ollamaModels.contains(where: { $0.name == draft.model }) {
                         draft.model = ollamaModels[0].name
-                        isDirty = true
+                        autosave()
                     }
                 }
 
@@ -1069,7 +1073,7 @@ private struct ProfileEditorView: View {
                             get: { draft.visionProvider ?? draft.provider },
                             set: { p in
                                 draft.visionProvider = p == draft.provider ? nil : p
-                                isDirty = true
+                                autosave()
                             }
                         )) {
                             Text(draft.provider.supportsVision ? "Same as text" : "None (not supported)").tag(draft.provider)
@@ -1087,7 +1091,7 @@ private struct ProfileEditorView: View {
                             get: { draft.visionModel ?? "" },
                             set: { v in
                                 draft.visionModel = v.isEmpty ? nil : v
-                                isDirty = true
+                                autosave()
                             }
                         ))
                         .textFieldStyle(.plain)
@@ -1115,7 +1119,7 @@ private struct ProfileEditorView: View {
                             RoundedRectangle(cornerRadius: 8)
                                 .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
                         )
-                        .onChange(of: draft.systemPrompt) { _, _ in isDirty = true }
+                        .onChange(of: draft.systemPrompt) { _, _ in autosave() }
                 }
 
                 // Max output tokens + Temperature in one card
@@ -1131,7 +1135,7 @@ private struct ProfileEditorView: View {
                         Slider(
                             value: Binding(
                                 get: { Double(draft.maxOutputTokens) },
-                                set: { draft.maxOutputTokens = Int($0); isDirty = true }
+                                set: { draft.maxOutputTokens = Int($0); autosave() }
                             ),
                             in: 256...16384, step: 256
                         )
@@ -1150,7 +1154,7 @@ private struct ProfileEditorView: View {
                         Slider(
                             value: Binding(
                                 get: { draft.temperature },
-                                set: { draft.temperature = $0; isDirty = true }
+                                set: { draft.temperature = $0; autosave() }
                             ),
                             in: 0.0...2.0, step: 0.1
                         )
@@ -1183,7 +1187,7 @@ private struct ProfileEditorView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
-                        .onChange(of: draft.thinkingEnabled) { _, _ in isDirty = true }
+                        .onChange(of: draft.thinkingEnabled) { _, _ in autosave() }
 
                         if draft.thinkingEnabled {
                             HStack(spacing: 10) {
@@ -1194,7 +1198,7 @@ private struct ProfileEditorView: View {
                                     }
                                 }
                                 .pickerStyle(.segmented)
-                                .onChange(of: draft.reasoningEffort) { _, _ in isDirty = true }
+                                .onChange(of: draft.reasoningEffort) { _, _ in autosave() }
                             }
                             Text("Higher effort = more thinking tokens = better on hard tasks, but slower and pricier.")
                                 .font(.caption2)
@@ -1222,27 +1226,6 @@ private struct ProfileEditorView: View {
                     }
 
                     Spacer()
-
-                    if isDirty {
-                        Button("Discard") {
-                            if let stored = ProfilesStore.shared.profiles.first(where: { $0.id == draft.id }) {
-                                draft = stored
-                            }
-                            isDirty = false
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                        .font(.callout)
-                    }
-
-                    Button("Save") {
-                        guard !draft.name.isEmpty, !draft.model.isEmpty else { return }
-                        onSave(draft)
-                        isDirty = false
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                    .disabled(!isDirty)
                 }
                 .padding(.top, 4)
             }
@@ -1267,7 +1250,7 @@ private struct ProfileEditorView: View {
                 TextField("Model identifier", text: $draft.model)
                     .textFieldStyle(.plain)
                     .glassField()
-                    .onChange(of: draft.model) { _, _ in isDirty = true }
+                    .onChange(of: draft.model) { _, _ in autosave() }
                 Text("Ollama not running or no models installed. Type a model name manually.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
@@ -1275,7 +1258,7 @@ private struct ProfileEditorView: View {
         } else {
             Picker("", selection: Binding(
                 get: { draft.model },
-                set: { draft.model = $0; isDirty = true }
+                set: { draft.model = $0; autosave() }
             )) {
                 ForEach(ollamaModels, id: \.name) { m in
                     Text(m.name).tag(m.name)
