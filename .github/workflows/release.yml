@@ -34,10 +34,11 @@ jobs:
     name: Build & Release
     runs-on: macos-26
     outputs:
-      version:  ${{ steps.meta.outputs.version }}
-      sha256:   ${{ steps.sha.outputs.sha256 }}
-      dmg_name: ${{ steps.meta.outputs.dmg_name }}
-      skipped:  ${{ steps.check.outputs.skipped }}
+      version:    ${{ steps.meta.outputs.version }}
+      sha256:     ${{ steps.sha.outputs.sha256 }}
+      dmg_name:   ${{ steps.meta.outputs.dmg_name }}
+      skipped:    ${{ steps.check.outputs.skipped }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,12 +53,14 @@ jobs:
           else
             VERSION=$(tr -d '[:space:]' < VERSION)
           fi
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Invalid version '$VERSION'. Expected MAJOR.MINOR.PATCH."
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "::error::Invalid version '$VERSION'. Expected MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-suffix."
             exit 1
           fi
+          [[ "$VERSION" == *-* ]] && PRERELEASE=true || PRERELEASE=false
           echo "version=$VERSION"               >> "$GITHUB_OUTPUT"
           echo "dmg_name=BlindSpot-$VERSION.dmg" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE"          >> "$GITHUB_OUTPUT"
 
       - name: Skip if release already exists
         id: check
@@ -151,7 +154,7 @@ jobs:
         run: ./scripts/make-release.sh "${{ steps.meta.outputs.version }}"
 
       - name: Generate appcast.xml
-        if: steps.check.outputs.skipped == 'false'
+        if: steps.check.outputs.skipped == 'false' && steps.meta.outputs.prerelease == 'false'
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         shell: bash
@@ -205,6 +208,7 @@ jobs:
         with:
           tag_name: v${{ steps.meta.outputs.version }}
           name: BlindSpot ${{ steps.meta.outputs.version }}
+          prerelease: ${{ steps.meta.outputs.prerelease }}
           generate_release_notes: true
           body: |
             ## Install
@@ -231,7 +235,7 @@ jobs:
     runs-on: ubuntu-latest
     # Only run when a PAT for the tap repo has been configured and the build
     # wasn't skipped. Without the PAT the build still ships — cask update skipped.
-    if: ${{ needs.build.outputs.skipped == 'false' && vars.HOMEBREW_TAP_REPO != '' }}
+    if: ${{ needs.build.outputs.skipped == 'false' && needs.build.outputs.prerelease == 'false' && vars.HOMEBREW_TAP_REPO != '' }}
     steps:
       - name: Rewrite Casks/blindspot.rb in tap
         env:
