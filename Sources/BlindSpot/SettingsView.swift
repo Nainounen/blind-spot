@@ -316,6 +316,28 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Panel Appearance")
+                        .font(.callout)
+                    Picker("Panel Appearance", selection: Binding(
+                        get: { prefs.panelAppearanceMode },
+                        set: {
+                            prefs.setPanelAppearanceMode($0)
+                            CommandPanelController.shared.applyAppearance()
+                        }
+                    )) {
+                        ForEach(PanelAppearanceMode.allCases) { mode in
+                            Text(mode.displayName).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(maxWidth: 220)
+                    Text("Light forces the panel bright (white liquid glass) regardless of system theme.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Toggle(isOn: Binding(
                     get: { prefs.savePanelPosition },
                     set: { prefs.setSavePanelPosition($0) }

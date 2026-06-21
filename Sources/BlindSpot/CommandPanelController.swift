@@ -101,6 +101,16 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         vm.isLoading = false
     }
 
+    /// Apply the stored appearance override to the panel.
+    func applyAppearance() {
+        guard let panel else { return }
+        switch PreferencesStore.shared.panelAppearanceMode {
+        case .system: panel.appearance = nil
+        case .light:  panel.appearance = NSAppearance(named: .aqua)
+        case .dark:   panel.appearance = NSAppearance(named: .darkAqua)
+        }
+    }
+
     /// Resize the panel to match the current size preset and conversation state.
     /// For XS, the panel expands when there is content and collapses when empty.
     func resizePanel(animated: Bool, reposition: Bool = false) {
@@ -339,6 +349,9 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
                 onCancel: { [weak self] in self?.cancelStream() }
             )
         )
+        // Prevent SwiftUI from overriding the panel frame via intrinsic content size.
+        // ScrollView content in long conversations would otherwise expand the window.
+        hostingView.sizingOptions = []
 
         let glassView = NSGlassEffectView()
         glassView.cornerRadius = 16
@@ -352,5 +365,6 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         p.setFrameOrigin(NSPoint(x: x, y: y))
 
         self.panel = p
+        applyAppearance()
     }
 }

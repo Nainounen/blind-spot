@@ -4,6 +4,20 @@ import Combine
 
 // MARK: - Panel size preset
 
+enum PanelAppearanceMode: String, CaseIterable, Identifiable {
+    case system, light, dark
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .system: return "System"
+        case .light:  return "Light"
+        case .dark:   return "Dark"
+        }
+    }
+}
+
 enum PanelSizePreset: String, CaseIterable, Identifiable {
     case xs, small, medium, large
 
@@ -102,6 +116,9 @@ final class PreferencesStore: ObservableObject {
     /// Size preset for the command panel. Default is medium (880 × 560).
     @Published var panelSizePreset: PanelSizePreset
 
+    /// Appearance override for the command panel. Default follows the system.
+    @Published var panelAppearanceMode: PanelAppearanceMode
+
     /// When true, the panel remembers its last dragged position and restores it
     /// on next open instead of centering on screen.
     @Published var savePanelPosition: Bool
@@ -165,6 +182,7 @@ final class PreferencesStore: ObservableObject {
         closeOnFocusLoss = UserDefaults.standard.bool(forKey: "closeOnFocusLoss")
         autoCopyLastResponse = UserDefaults.standard.bool(forKey: "autoCopyLastResponse")
         panelSizePreset = PanelSizePreset(rawValue: UserDefaults.standard.string(forKey: "panelSizePreset") ?? "") ?? .medium
+        panelAppearanceMode = PanelAppearanceMode(rawValue: UserDefaults.standard.string(forKey: "panelAppearanceMode") ?? "") ?? .system
         savePanelPosition = UserDefaults.standard.bool(forKey: "savePanelPosition")
         let storedPadding = UserDefaults.standard.double(forKey: "screenshotPadding")
         screenshotPadding = storedPadding > 0 ? storedPadding : 300
@@ -294,6 +312,11 @@ final class PreferencesStore: ObservableObject {
     func setPanelSizePreset(_ preset: PanelSizePreset) {
         panelSizePreset = preset
         defaults.set(preset.rawValue, forKey: "panelSizePreset")
+    }
+
+    func setPanelAppearanceMode(_ mode: PanelAppearanceMode) {
+        panelAppearanceMode = mode
+        defaults.set(mode.rawValue, forKey: "panelAppearanceMode")
     }
 
     func setSavePanelPosition(_ value: Bool) {
