@@ -120,6 +120,24 @@ final class MenuBarController {
         sizeItem.submenu = sizeMenu
         menu.addItem(sizeItem)
 
+        // Panel appearance submenu
+        let appearanceItem = NSMenuItem(title: "Panel Appearance", action: nil, keyEquivalent: "")
+        let appearanceMenu = NSMenu()
+        let currentAppearance = PreferencesStore.shared.panelAppearanceMode
+        for mode in PanelAppearanceMode.allCases {
+            let item = NSMenuItem(
+                title: mode.displayName,
+                action: #selector(selectPanelAppearance(_:)),
+                keyEquivalent: ""
+            )
+            item.representedObject = mode.rawValue
+            item.target = self
+            item.state = mode == currentAppearance ? .on : .off
+            appearanceMenu.addItem(item)
+        }
+        appearanceItem.submenu = appearanceMenu
+        menu.addItem(appearanceItem)
+
         menu.addItem(.separator())
 
         let settings = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
@@ -170,6 +188,14 @@ final class MenuBarController {
               let preset = PanelSizePreset(rawValue: raw) else { return }
         PreferencesStore.shared.setPanelSizePreset(preset)
         CommandPanelController.shared.resizePanel(animated: true)
+        rebuildMenu()
+    }
+
+    @objc private func selectPanelAppearance(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let mode = PanelAppearanceMode(rawValue: raw) else { return }
+        PreferencesStore.shared.setPanelAppearanceMode(mode)
+        CommandPanelController.shared.applyAppearance()
         rebuildMenu()
     }
 }
