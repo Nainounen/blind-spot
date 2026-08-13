@@ -522,7 +522,7 @@ private struct SidebarView: View {
 
 // MARK: - Main conversation area
 
-private struct TurnView: View {
+private struct TurnView: View, Equatable {
     let turn: CommandPanelViewModel.Turn
     let isLast: Bool
     let isLoading: Bool
@@ -531,6 +531,14 @@ private struct TurnView: View {
 
     @State private var isHovered = false
     @State private var isCopied = false
+
+    // Hand-written because `@State` blocks synthesis (State is not Equatable).
+    // Mutating one turn changes the whole `turns` array, so without this every
+    // earlier turn re-parses its markdown on each streamed update.
+    static func == (a: TurnView, b: TurnView) -> Bool {
+        a.turn == b.turn && a.isLast == b.isLast && a.isLoading == b.isLoading
+            && a.errorMessage == b.errorMessage && a.isFirst == b.isFirst
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -649,6 +657,9 @@ private struct ConversationArea: View {
                             errorMessage: vm.errorMessage,
                             isFirst: idx == 0
                         )
+                        // Mutating one turn changes the whole `turns` array, so without
+                        // this every earlier turn re-parses its markdown on each update.
+                        .equatable()
                         if idx < vm.turns.count - 1 {
                             Divider().opacity(0.5)
                         }

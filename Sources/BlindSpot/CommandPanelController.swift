@@ -191,18 +191,26 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         let msgSnapshot = vm.activeConversation?.messages ?? []
 
         streamTask = Task {
+            var fullResponse = ""
             do {
                 let stream = try await AIService.query(msgSnapshot, profile: profile)
-                var fullResponse = ""
+                // ponytail: coalesce chunks at ~12fps. Publishing every chunk made
+                // SwiftUI re-parse the markdown of every turn on each token — O(n^2)
+                // allocation. Costs up to 80ms of latency on the first token.
+                var lastFlush = ContinuousClock.now
                 for try await chunk in stream {
                     fullResponse += chunk
+                    guard ContinuousClock.now - lastFlush > .milliseconds(80) else { continue }
+                    lastFlush = .now
+                    let snapshot = fullResponse
                     await MainActor.run {
                         guard turnIndex < vm.turns.count else { return }
-                        vm.turns[turnIndex].response += chunk
+                        vm.turns[turnIndex].response = snapshot
                     }
                 }
                 let completed = fullResponse
                 await MainActor.run {
+                    if turnIndex < vm.turns.count { vm.turns[turnIndex].response = completed }
                     vm.isLoading = false
                     guard !completed.isEmpty else {
                         if !Task.isCancelled {
@@ -225,7 +233,13 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
             } catch {
                 await MainActor.run {
                     vm.isLoading = false
-                    if !(error is CancellationError) {
+                    if error is CancellationError {
+                        // Flush the last coalesced chunk so a cancelled stream
+                        // shows everything that was received.
+                        if turnIndex < vm.turns.count, !fullResponse.isEmpty {
+                            vm.turns[turnIndex].response = fullResponse
+                        }
+                    } else {
                         vm.errorMessage = error.localizedDescription
                     }
                 }

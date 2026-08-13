@@ -51,10 +51,10 @@ class HotkeyManager {
             eventsOfInterest: mask,
             callback: { _, _, event, refcon -> Unmanaged<CGEvent>? in
                 // C function pointer — no captures allowed.
-                guard let refcon else { return Unmanaged.passRetained(event) }
+                guard let refcon else { return Unmanaged.passUnretained(event) }
                 let mgr = Unmanaged<HotkeyManager>.fromOpaque(refcon).takeUnretainedValue()
 
-                guard mgr.modifiers != 0 else { return Unmanaged.passRetained(event) }
+                guard mgr.modifiers != 0 else { return Unmanaged.passUnretained(event) }
 
                 let kc = UInt16(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeycode))
                 // 0xFFFF0000 == NSEvent.ModifierFlags.deviceIndependentFlagsMask.
@@ -64,7 +64,7 @@ class HotkeyManager {
                     DispatchQueue.main.async { mgr.callback() }
                     return nil // swallow
                 }
-                return Unmanaged.passRetained(event)
+                return Unmanaged.passUnretained(event)
             },
             userInfo: selfPtr
         )

@@ -3,7 +3,7 @@ import Foundation
 @MainActor
 @Observable
 final class CommandPanelViewModel {
-    struct Turn {
+    struct Turn: Equatable {
         let query: String
         var response: String
         var hasImage: Bool = false
