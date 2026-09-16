@@ -162,9 +162,10 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         let profile = ProfilesStore.shared.activeProfile
 
         // Inject system prompt on first turn
-        if vm.turns.isEmpty && !profile.systemPrompt.isEmpty {
+        let systemPrompt = profile.fullSystemPrompt
+        if vm.turns.isEmpty && !systemPrompt.isEmpty {
             vm.activeConversation?.messages.append(
-                ConversationMessage(role: .system, content: profile.systemPrompt)
+                ConversationMessage(role: .system, content: systemPrompt)
             )
         }
         // Attach screenshot only when provider supports vision

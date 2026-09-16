@@ -58,6 +58,35 @@ struct AIProfile: Identifiable, Equatable {
     }
 }
 
+// MARK: - Context files
+
+extension AIProfile {
+    /// Folder of user-written .md files injected after the system prompt.
+    var contextDirectory: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/blind-spot/context/\(id.uuidString)")
+    }
+
+    var contextFiles: [URL] {
+        let files = (try? FileManager.default.contentsOfDirectory(at: contextDirectory, includingPropertiesForKeys: nil)) ?? []
+        return files
+            .filter { ["md", "markdown", "txt"].contains($0.pathExtension.lowercased()) }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    /// System prompt plus every context file, read fresh so edits apply to the next conversation.
+    var fullSystemPrompt: String {
+        let context = contextFiles.compactMap { url -> String? in
+            guard let text = try? String(contentsOf: url, encoding: .utf8),
+                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+            return "## \(url.deletingPathExtension().lastPathComponent)\n\n\(text)"
+        }
+        guard !context.isEmpty else { return systemPrompt }
+        let block = "# Context\n\nBackground information about the user. Use it when relevant.\n\n" + context.joined(separator: "\n\n")
+        return systemPrompt.isEmpty ? block : systemPrompt + "\n\n" + block
+    }
+}
+
 extension AIProfile: Codable {
     enum CodingKeys: String, CodingKey {
         case id, name, provider, model, visionModel, visionProvider

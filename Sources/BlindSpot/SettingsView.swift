@@ -1176,6 +1176,34 @@ private struct ProfileEditorView: View {
                         .onChange(of: draft.systemPrompt) { _, _ in autosave() }
                 }
 
+                // Context files
+                VStack(alignment: .leading, spacing: 8) {
+                    fieldLabel("Context Files")
+                    HStack(spacing: 8) {
+                        Text(contextFileNames.isEmpty ? "No files yet" : contextFileNames.joined(separator: ", "))
+                            .font(.callout)
+                            .foregroundStyle(contextFileNames.isEmpty ? .tertiary : .primary)
+                            .lineLimit(2)
+                        Spacer()
+                        Button("Refresh") { contextFileNames = draft.contextFiles.map(\.lastPathComponent) }
+                            .buttonStyle(.borderless)
+                            .controlSize(.small)
+                        Button("Open in Finder") {
+                            try? FileManager.default.createDirectory(at: draft.contextDirectory, withIntermediateDirectories: true)
+                            NSWorkspace.shared.open(draft.contextDirectory)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                    Text("Add one or more .md files, like notes about you, your course or your projects. They're sent after the system prompt at the start of each new conversation.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(14)
+                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+                .onAppear { contextFileNames = draft.contextFiles.map(\.lastPathComponent) }
+
                 // Max output tokens + Temperature in one card
                 VStack(alignment: .leading, spacing: 14) {
                     VStack(alignment: .leading, spacing: 5) {
