@@ -1020,6 +1020,9 @@ private struct ProfileEditorView: View {
 
     @State private var isActiveProfile: Bool = false
     @State private var ollamaModels: [OllamaService.Model] = []
+    @AppStorage("localBaseURL") private var localBaseURL = ""
+    @State private var contextFileNames: [String] = []
+    @State private var remoteModels: [String] = []
     @State private var ollamaLoading: Bool = false
 
     private func autosave() {
@@ -1053,6 +1056,7 @@ private struct ProfileEditorView: View {
                             set: { p in
                                 draft.provider = p
                                 draft.model = p.defaultModel
+                                if draft.visionProvider == p { draft.visionProvider = nil; draft.visionModel = nil }
                                 autosave()
                             }
                         )) {
@@ -1071,11 +1075,36 @@ private struct ProfileEditorView: View {
                                 .textFieldStyle(.plain)
                                 .glassField()
                                 .onChange(of: draft.model) { _, _ in autosave() }
+                            Menu {
+                                let models = remoteModels.isEmpty ? draft.provider.suggestedModels : remoteModels
+                                if models.isEmpty { Text("No models found") }
+                                ForEach(models, id: \.self) { m in
+                                    Button(m) { draft.model = m; autosave() }
+                                }
+                            } label: {
+                                Image(systemName: "chevron.up.chevron.down")
+                            }
+                            .menuStyle(.borderlessButton)
+                            .menuIndicator(.hidden)
+                            .fixedSize()
+                            .help(remoteModels.isEmpty ? "Suggested models (live list unavailable)" : "Models available on your account")
                         }
                     }
+                    if draft.provider == .local {
+                        TextField("http://localhost:8000/v1", text: $localBaseURL)
+                        .textFieldStyle(.plain)
+                        .glassField()
+                        Text("Base URL of any OpenAI-compatible server (oMLX, LM Studio, llama.cpp). Optional key: LOCAL_API_KEY or ~/.config/blind-spot/keys/local.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
-                .task(id: draft.provider) {
-                    guard draft.provider == .ollama else { return }
+                .task(id: "\(draft.provider.rawValue)|\(localBaseURL)") {
+                    remoteModels = []
+                    guard draft.provider == .ollama else {
+                        remoteModels = await ModelListService.fetch(draft.provider) ?? []
+                        return
+                    }
                     ollamaLoading = true
                     ollamaModels = await OllamaService.listInstalledModels() ?? []
                     ollamaLoading = false
@@ -1091,22 +1120,24 @@ private struct ProfileEditorView: View {
 
                     HStack(spacing: 8) {
                         Text("Provider").font(.caption).foregroundStyle(.secondary).frame(width: 55, alignment: .leading)
-                        Picker("", selection: Binding(
-                            get: { draft.visionProvider ?? draft.provider },
+                        Picker("", selection: Binding<Provider?>(
+                            get: { draft.visionProvider },
                             set: { p in
-                                draft.visionProvider = p == draft.provider ? nil : p
+                                draft.visionProvider = p
+                                if p == nil { draft.visionModel = nil }
                                 autosave()
                             }
                         )) {
-                            Text(draft.provider.supportsVision ? "Same as text" : "None (not supported)").tag(draft.provider)
-                            ForEach(Provider.allCases.filter { $0.supportsVision }, id: \.rawValue) { p in
-                                Text(p.displayName).tag(p)
+                            Text(draft.provider.supportsVision ? "Same as text" : "None (not supported)").tag(Provider?.none)
+                            ForEach(Provider.allCases.filter { $0.supportsVision && $0 != draft.provider }, id: \.rawValue) { p in
+                                Text(p.displayName).tag(Provider?.some(p))
                             }
                         }
                         .pickerStyle(.menu)
                         .labelsHidden()
                     }
 
+                    if draft.visionProvider != nil {
                     HStack(spacing: 8) {
                         Text("Model").font(.caption).foregroundStyle(.secondary).frame(width: 55, alignment: .leading)
                         TextField("Default for provider", text: Binding(
@@ -1119,8 +1150,9 @@ private struct ProfileEditorView: View {
                         .textFieldStyle(.plain)
                         .glassField()
                     }
+                    }
 
-                    Text("Use a different provider or model for screenshot requests. For example, route via Gemini for vision even when your text queries go through DeepSeek.")
+                    Text("Use a different provider or model for screenshot requests. For example, route via Gemini for vision even when your text queries go through Ollama.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -1222,7 +1254,7 @@ private struct ProfileEditorView: View {
                                 .pickerStyle(.segmented)
                                 .onChange(of: draft.reasoningEffort) { _, _ in autosave() }
                             }
-                            Text("Higher effort = more thinking tokens = better on hard tasks, but slower and pricier.")
+                            Text("Auto lets the model pick. Higher effort is better on hard tasks but slower and pricier. Not every model supports every level.")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }

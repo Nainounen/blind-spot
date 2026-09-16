@@ -27,8 +27,12 @@ enum AIService {
         let hasImages = messages.contains { $0.image != nil }
         let routingProvider = (hasImages ? profile.visionProvider : nil) ?? profile.provider
         let routingModel: String = {
-            if hasImages, let vm = profile.visionModel { return vm }
-            return profile.model
+            guard hasImages else { return profile.model }
+            if profile.visionProvider != nil, let vm = profile.visionModel { return vm }
+            // Only deepseek-flash accepts images; pro/reasoner would 400.
+            if routingProvider == .deepseek { return "deepseek-flash" }
+            // Text model belongs to another provider, so fall back to this one's default.
+            return routingProvider == profile.provider ? profile.model : routingProvider.defaultModel
         }()
 
         // Build an effective profile so provider-specific behavior (thinking,
@@ -48,25 +52,15 @@ enum AIService {
         )
 
         switch routingProvider {
-        case .openai:
+        case .openai, .deepseek, .grok, .local:
             return try await queryOpenAICompatible(
                 messages, profile: eff,
-                endpoint: "https://api.openai.com/v1/chat/completions"
-            )
-        case .deepseek:
-            return try await queryOpenAICompatible(
-                messages, profile: eff,
-                endpoint: "https://api.deepseek.com/v1/chat/completions"
-            )
-        case .grok:
-            return try await queryOpenAICompatible(
-                messages, profile: eff,
-                endpoint: "https://api.x.ai/v1/chat/completions"
+                endpoint: routingProvider.openAIBaseURL! + "/chat/completions"
             )
         case .openrouter:
             return try await queryOpenAICompatible(
                 messages, profile: eff,
-                endpoint: "https://openrouter.ai/api/v1/chat/completions",
+                endpoint: routingProvider.openAIBaseURL! + "/chat/completions",
                 extraHeaders: [
                     "HTTP-Referer": "https://github.com/unveroleone/blind-spot",
                     "X-Title": "BlindSpot",
@@ -87,7 +81,7 @@ enum AIService {
         extraHeaders: [String: String] = [:]
     ) async throws -> AsyncThrowingStream<String, Swift.Error> {
         let key = apiKey(for: profile.provider)
-        guard !key.isEmpty else { throw Error.missingAPIKey(profile.provider) }
+        guard !key.isEmpty || !profile.provider.requiresKey else { throw Error.missingAPIKey(profile.provider) }
 
         let apiMessages: [[String: Any]] = messages.map {
             ["role": $0.role.rawValue, "content": openAIContent(for: $0)]
@@ -98,23 +92,34 @@ enum AIService {
 
         var req = URLRequest(url: URL(string: endpoint)!)
         req.httpMethod = "POST"
-        req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        if !key.isEmpty { req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization") }
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         for (header, value) in extraHeaders {
             req.setValue(value, forHTTPHeaderField: header)
         }
         var body: [String: Any] = [
             "model": effectiveModel,
-            "max_tokens": profile.maxOutputTokens,
+            // OpenAI o-series rejects max_tokens; others only know max_tokens.
+            profile.provider == .openai ? "max_completion_tokens" : "max_tokens": profile.maxOutputTokens,
             "stream": true,
             "messages": apiMessages,
         ]
+        let effort = profile.reasoningEffort
+        if profile.provider == .deepseek {
+            // DeepSeek thinks by default, so "off" has to be sent explicitly.
+            body["thinking"] = ["type": profile.thinkingEnabled && !hasImages ? "enabled" : "disabled"]
+        }
         if profile.thinkingEnabled && !hasImages {
-            body["reasoning_effort"] = profile.reasoningEffort.rawValue
-            if profile.provider == .deepseek {
-                body["thinking"] = ["type": "enabled"]
+            if effort != .auto {
+                switch (profile.provider, effort) {
+                case (.deepseek, _): body["reasoning_effort"] = effort.rawValue  // server maps medium to high
+                case (.grok, .max):  body["reasoning_effort"] = "xhigh"
+                case (_, .max):      body["reasoning_effort"] = "high"
+                default:             body["reasoning_effort"] = effort.rawValue
+                }
             }
-        } else if !profile.thinkingEnabled || hasImages {
+        } else if profile.provider != .openai || effectiveModel.hasPrefix("gpt-4") {
+            // ponytail: GPT-5 and o-series reject custom temperature; prefix check until OpenAI exposes capabilities.
             body["temperature"] = profile.temperature
         }
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -176,7 +181,17 @@ enum AIService {
         ]
         if let s = systemText { body["system"] = s }
         if profile.thinkingEnabled && !hasImages {
-            body["thinking"] = ["type": "adaptive", "effort": profile.reasoningEffort.rawValue]
+            if anthropicUsesBudgetTokens(effectiveModel) {
+                let budget = ["low": 2048, "high": 16384, "max": 32000][profile.reasoningEffort.rawValue] ?? 8192
+                // budget_tokens must stay below max_tokens, so reserve it on top of the answer.
+                body["thinking"] = ["type": "enabled", "budget_tokens": budget]
+                body["max_tokens"] = profile.maxOutputTokens + budget
+            } else {
+                body["thinking"] = ["type": "adaptive"]
+                if profile.reasoningEffort != .auto {
+                    body["output_config"] = ["effort": profile.reasoningEffort.rawValue]
+                }
+            }
         }
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -202,6 +217,13 @@ enum AIService {
                 } catch { continuation.finish(throwing: error) }
             }
         }
+    }
+
+    // Pre-4.6 Claude models only take budget_tokens; 4.6+ use adaptive thinking.
+    // ponytail: name-based check, switch to the Models API capabilities if IDs get irregular.
+    private static func anthropicUsesBudgetTokens(_ model: String) -> Bool {
+        ["claude-3", "-4-0", "-4-1", "-4-5", "sonnet-4-2", "opus-4-2"].contains { model.contains($0) }
+            || model == "claude-sonnet-4" || model == "claude-opus-4"
     }
 
     // MARK: - Gemini (SSE: candidates[0].content.parts[*].text)
@@ -244,6 +266,17 @@ enum AIService {
         ]
         if let s = systemText {
             body["systemInstruction"] = ["parts": [["text": s]]]
+        }
+        // Thinking off leaves the model default: several Gemini models can't disable it.
+        if profile.thinkingEnabled && !hasImages && profile.reasoningEffort != .auto {
+            let effort = profile.reasoningEffort == .max ? "high" : profile.reasoningEffort.rawValue
+            var config = body["generationConfig"] as! [String: Any]
+            if effectiveModel.contains("gemini-2") {
+                config["thinkingConfig"] = ["thinkingBudget": ["low": 2048, "medium": 8192, "high": 24576][effort]!]
+            } else {
+                config["thinkingConfig"] = ["thinkingLevel": effort]
+            }
+            body["generationConfig"] = config
         }
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -328,6 +361,7 @@ enum AIService {
             case .grok:       return env["XAI_API_KEY"] ?? env["GROK_API_KEY"]
             case .openrouter: return env["OPENROUTER_API_KEY"]
             case .ollama:     return nil
+            case .local:      return env["LOCAL_API_KEY"]
             }
         }()
         if let k = envKey, !k.isEmpty { return k }

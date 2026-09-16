@@ -3,6 +3,8 @@ import Foundation
 // MARK: - Reasoning effort
 
 enum ReasoningEffort: String, Codable, CaseIterable, Equatable {
+    /// Don't send an effort value; the model uses its own default.
+    case auto = "auto"
     case low = "low"
     case medium = "medium"
     case high = "high"
@@ -39,7 +41,7 @@ struct AIProfile: Identifiable, Equatable {
         temperature: Double = 1.0,
         createdAt: Date = Date(),
         thinkingEnabled: Bool = false,
-        reasoningEffort: ReasoningEffort = .medium
+        reasoningEffort: ReasoningEffort = .auto
     ) {
         self.id = id
         self.name = name

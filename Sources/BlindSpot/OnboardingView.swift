@@ -118,7 +118,7 @@ struct OnboardingView: View {
                 if selectedProvider == .ollama {
                     Task { @MainActor in await PreferencesStore.shared.refreshOllamaModels() }
                 }
-                go(to: selectedProvider == .ollama ? .accessibility : .apiKey)
+                go(to: selectedProvider.requiresKey ? .apiKey : .accessibility)
             case .apiKey:
                 if !apiKey.isEmpty {
                     PreferencesStore.shared.saveKey(apiKey, for: selectedProvider)
@@ -548,9 +548,10 @@ private extension Provider {
         case .anthropic:  return "Claude\nGreat for reasoning\nNeeds API key"
         case .gemini:     return "Gemini 2.5\nFast & cheap\nNeeds API key"
         case .deepseek:   return "DeepSeek\nVery cheap\nNeeds API key"
-        case .grok:       return "Grok 3\nxAI model\nNeeds API key"
+        case .grok:       return "Grok 4.6\nxAI model\nNeeds API key"
         case .openrouter: return "100+ models\nOne API key\nNeeds API key"
         case .ollama:     return "Local models\nFree & private\nNo API key"
+        case .local:      return "oMLX, LM Studio\nOpenAI-compatible\nNo API key"
         }
     }
 }

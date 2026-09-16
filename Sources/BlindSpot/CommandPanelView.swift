@@ -851,6 +851,7 @@ private struct StatusBar: View {
         case .grok:       return .primary
         case .openrouter: return .purple
         case .ollama:     return .indigo
+        case .local:      return .teal
         }
     }
 }
@@ -1006,6 +1007,7 @@ struct CommandPanelView: View {
         case .grok:       return .primary
         case .openrouter: return .purple
         case .ollama:     return .indigo
+        case .local:      return .teal
         }
     }
 }

@@ -8,6 +8,7 @@ enum Provider: String, CaseIterable, Codable {
     case grok
     case openrouter
     case ollama
+    case local
 
     var displayName: String {
         switch self {
@@ -18,46 +19,66 @@ enum Provider: String, CaseIterable, Codable {
         case .grok:       return "Grok"
         case .openrouter: return "OpenRouter"
         case .ollama:     return "Ollama"
+        case .local:      return "Local Server"
         }
     }
 
     var defaultModel: String {
         switch self {
-        case .openai:     return "gpt-4o"
-        case .anthropic:  return "claude-sonnet-4-5"
-        case .gemini:     return "gemini-2.5-flash"
-        case .deepseek:   return "deepseek-v4-flash"
-        case .grok:       return "grok-3"
+        case .openai:     return "gpt-5-mini"
+        case .anthropic:  return "claude-sonnet-5"
+        case .gemini:     return "gemini-flash-latest"
+        case .deepseek:   return "deepseek-flash"
+        case .grok:       return "grok-4.6"
         case .openrouter: return "openai/gpt-4o"
         case .ollama:     return "llama3.2"
+        case .local:      return ""
         }
     }
 
-    var requiresKey: Bool { self != .ollama }
+    /// Base URL for providers that speak the OpenAI Chat Completions format.
+    var openAIBaseURL: String? {
+        switch self {
+        case .openai:     return "https://api.openai.com/v1"
+        case .deepseek:   return "https://api.deepseek.com/v1"
+        case .grok:       return "https://api.x.ai/v1"
+        case .openrouter: return "https://openrouter.ai/api/v1"
+        case .local:      return Config.localBaseURL
+        case .anthropic, .gemini, .ollama: return nil
+        }
+    }
+
+    var requiresKey: Bool { self != .ollama && self != .local }
 
     var supportsVision: Bool {
         switch self {
-        case .openai, .anthropic, .gemini, .grok, .openrouter: return true
-        case .deepseek, .ollama: return false
+        case .openai, .anthropic, .gemini, .deepseek, .grok, .openrouter, .local: return true
+        case .ollama: return false
         }
     }
 
     var supportsThinking: Bool {
         switch self {
-        case .openai, .anthropic, .deepseek, .grok, .openrouter: return true
-        case .gemini, .ollama: return false
+        case .openai, .anthropic, .gemini, .deepseek, .grok, .openrouter, .local: return true
+        case .ollama: return false
         }
     }
 
     var thinkingDescription: String {
         switch self {
-        case .openai, .grok, .openrouter:
-            return "Reasoning models (o3, o4-mini, grok-3-mini…) think before answering. Has no effect on non-reasoning models."
+        case .openai:
+            return "For reasoning models (GPT-5, o3). gpt-4o rejects effort with an error, so use Auto or turn thinking off."
         case .anthropic:
-            return "Claude thinks before answering using adaptive thinking. Temperature still applies."
+            return "Claude thinks before answering. Older models (Sonnet 4.5, Haiku 4.5) use a token budget instead of effort."
+        case .gemini:
+            return "Gemini 3 uses thinking levels, 2.5 a token budget. Most Gemini models always think a little, even when this is off."
         case .deepseek:
-            return "DeepSeek-v4-Pro thinking mode. Only applies to the deepseek-v4-pro model. Temperature is ignored."
-        default:
+            return "DeepSeek thinks by default; turning this off disables it. Medium is treated as high. Temperature only applies when off."
+        case .grok:
+            return "Grok 4.5 and 4.6 always reason, so off just means the default (high). Max is sent as xhigh."
+        case .openrouter, .local:
+            return "Depends on the model. Some ignore effort or return an error, so use Auto if a request fails."
+        case .ollama:
             return ""
         }
     }
@@ -70,7 +91,7 @@ enum Provider: String, CaseIterable, Codable {
         case .deepseek:   return "https://platform.deepseek.com/api_keys"
         case .grok:       return "https://console.x.ai"
         case .openrouter: return "https://openrouter.ai/keys"
-        case .ollama:     return nil
+        case .ollama, .local: return nil
         }
     }
 
@@ -87,18 +108,19 @@ enum Provider: String, CaseIterable, Codable {
         case .grok:       return "bolt"
         case .openrouter: return "arrow.triangle.branch"
         case .ollama:     return "laptopcomputer"
+        case .local:      return "server.rack"
         }
     }
 
     var suggestedModels: [String] {
         switch self {
-        case .openai:     return ["gpt-4o", "gpt-4o-mini", "o3", "o4-mini"]
-        case .anthropic:  return ["claude-sonnet-4-5", "claude-opus-4-8", "claude-haiku-4-5-20251001"]
-        case .gemini:     return ["gemini-2.5-flash", "gemini-2.5-pro"]
-        case .deepseek:   return ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-reasoner"]
-        case .grok:       return ["grok-3", "grok-3-mini"]
+        case .openai:     return ["gpt-5.1", "gpt-5-mini", "gpt-5-nano", "o3"]
+        case .anthropic:  return ["claude-sonnet-5", "claude-opus-5", "claude-fable-5-1", "claude-haiku-4-5"]
+        case .gemini:     return ["gemini-flash-latest", "gemini-pro-latest", "gemini-flash-lite-latest"]
+        case .deepseek:   return ["deepseek-flash", "deepseek-v4-pro"]
+        case .grok:       return ["grok-4.6", "grok-4.5"]
         case .openrouter: return ["openai/gpt-4o", "anthropic/claude-sonnet-4-5", "deepseek/deepseek-v4-flash", "google/gemini-2.5-flash", "meta-llama/llama-3.1-8b-instruct:free"]
-        case .ollama:     return []
+        case .ollama, .local: return []
         }
     }
 }
@@ -106,6 +128,13 @@ enum Provider: String, CaseIterable, Codable {
 // Config reads UserDefaults and files directly — no actor isolation needed.
 // PreferencesStore writes to the same locations from the UI layer.
 enum Config {
+    /// OpenAI-compatible base URL for the Local Server provider (oMLX defaults to port 8000).
+    static var localBaseURL: String {
+        let raw = UserDefaults.standard.string(forKey: "localBaseURL") ?? ""
+        let url = raw.isEmpty ? "http://localhost:8000/v1" : raw
+        return url.hasSuffix("/") ? String(url.dropLast()) : url
+    }
+
     // MARK: - Provider
 
     static var provider: Provider {
