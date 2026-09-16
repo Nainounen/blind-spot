@@ -1030,8 +1030,8 @@ private struct ProfileEditorView: View {
         onSave(draft)
     }
 
-    private var temperatureDisabled: Bool {
-        draft.thinkingEnabled && draft.provider != .anthropic
+    private var temperatureIgnored: Bool {
+        draft.thinkingEnabled || draft.provider == .anthropic
     }
 
     var body: some View {
@@ -1229,25 +1229,32 @@ private struct ProfileEditorView: View {
                         HStack {
                             fieldLabel("Temperature")
                             Spacer()
-                            Text(String(format: "%.1f", draft.temperature))
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(temperatureDisabled ? .tertiary : .secondary)
+                            if let t = draft.temperature {
+                                Text(String(format: "%.1f", t))
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                        Slider(
-                            value: Binding(
-                                get: { draft.temperature },
-                                set: { draft.temperature = $0; autosave() }
-                            ),
-                            in: 0.0...2.0, step: 0.1
-                        )
-                        .disabled(temperatureDisabled)
-                        .opacity(temperatureDisabled ? 0.35 : 1.0)
-                        if temperatureDisabled {
-                            Text("Temperature is ignored when thinking mode is on for this provider.")
+                        Toggle("Use model default", isOn: Binding(
+                            get: { draft.temperature == nil },
+                            set: { draft.temperature = $0 ? nil : 0.7; autosave() }
+                        ))
+                        .font(.callout)
+                        if let t = draft.temperature {
+                            Slider(
+                                value: Binding(
+                                    get: { t },
+                                    set: { draft.temperature = $0; autosave() }
+                                ),
+                                in: 0.0...2.0, step: 0.1
+                            )
+                            Text(temperatureIgnored
+                                 ? "Not sent while thinking is on, or to Claude, GPT-5 and o-series models."
+                                 : "Lower = focused · Higher = creative. GPT-5 and o-series models ignore this.")
                                 .font(.caption2)
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(temperatureIgnored ? .orange : .secondary)
                         } else {
-                            Text("Lower = focused · Higher = creative")
+                            Text("Recommended. Most current models are tuned for their default.")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }

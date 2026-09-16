@@ -118,9 +118,9 @@ enum AIService {
                 default:             body["reasoning_effort"] = effort.rawValue
                 }
             }
-        } else if profile.provider != .openai || effectiveModel.hasPrefix("gpt-4") {
+        } else if let t = profile.temperature, profile.provider != .openai || effectiveModel.hasPrefix("gpt-4") {
             // ponytail: GPT-5 and o-series reject custom temperature; prefix check until OpenAI exposes capabilities.
-            body["temperature"] = profile.temperature
+            body["temperature"] = t
         }
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -261,8 +261,7 @@ enum AIService {
             "contents": contents,
             "generationConfig": [
                 "maxOutputTokens": profile.maxOutputTokens,
-                "temperature": profile.temperature,
-            ],
+            ].merging(profile.temperature.map { ["temperature": $0] } ?? [:]) { $1 },
         ]
         if let s = systemText {
             body["systemInstruction"] = ["parts": [["text": s]]]
@@ -322,7 +321,7 @@ enum AIService {
             "model": profile.model,
             "stream": true,
             "messages": apiMessages,
-            "options": ["temperature": profile.temperature],
+            "options": profile.temperature.map { ["temperature": $0] } ?? [:],
         ])
 
         let (stream, response) = try await URLSession.shared.bytes(for: req)

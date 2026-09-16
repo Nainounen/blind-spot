@@ -24,7 +24,8 @@ struct AIProfile: Identifiable, Equatable {
     var visionProvider: Provider?
     var systemPrompt: String
     var maxOutputTokens: Int
-    var temperature: Double
+    /// nil = don't send a temperature and use the model's default.
+    var temperature: Double?
     var createdAt: Date
     var thinkingEnabled: Bool
     var reasoningEffort: ReasoningEffort
@@ -38,7 +39,7 @@ struct AIProfile: Identifiable, Equatable {
         visionProvider: Provider? = nil,
         systemPrompt: String = "",
         maxOutputTokens: Int = 4096,
-        temperature: Double = 1.0,
+        temperature: Double? = nil,
         createdAt: Date = Date(),
         thinkingEnabled: Bool = false,
         reasoningEffort: ReasoningEffort = .auto
@@ -104,7 +105,8 @@ extension AIProfile: Codable {
         visionProvider = try c.decodeIfPresent(Provider.self, forKey: .visionProvider)
         systemPrompt = try c.decode(String.self, forKey: .systemPrompt)
         maxOutputTokens = try c.decode(Int.self, forKey: .maxOutputTokens)
-        temperature = try c.decode(Double.self, forKey: .temperature)
+        // Profiles saved before this option stored 1.0 as the untouched default.
+        temperature = try c.decodeIfPresent(Double.self, forKey: .temperature).flatMap { $0 == 1.0 ? nil : $0 }
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         thinkingEnabled = try c.decodeIfPresent(Bool.self, forKey: .thinkingEnabled) ?? false
         reasoningEffort = try c.decodeIfPresent(ReasoningEffort.self, forKey: .reasoningEffort) ?? .medium
@@ -120,7 +122,7 @@ extension AIProfile: Codable {
         try c.encodeIfPresent(visionProvider, forKey: .visionProvider)
         try c.encode(systemPrompt, forKey: .systemPrompt)
         try c.encode(maxOutputTokens, forKey: .maxOutputTokens)
-        try c.encode(temperature, forKey: .temperature)
+        try c.encodeIfPresent(temperature, forKey: .temperature)
         try c.encode(createdAt, forKey: .createdAt)
         try c.encode(thinkingEnabled, forKey: .thinkingEnabled)
         try c.encode(reasoningEffort, forKey: .reasoningEffort)
@@ -245,8 +247,7 @@ final class ProfilesStore {
             provider: legacyProvider,
             model: legacyModel,
             systemPrompt: legacyPrompt,
-            maxOutputTokens: legacyMax > 0 ? legacyMax : 4096,
-            temperature: 1.0
+            maxOutputTokens: legacyMax > 0 ? legacyMax : 4096
         )
         profiles = [profile]
         activeProfileId = profile.id
