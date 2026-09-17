@@ -92,7 +92,10 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
 
     func sendFollowUp(_ text: String) {
         guard !vm.isLoading else { return }
-        startTurn(userText: text)
+        let image = vm.pastedImage
+        vm.pastedImage = nil
+        // Anthropic rejects empty text blocks, so an image-only message needs a prompt.
+        startTurn(userText: text.isEmpty && image != nil ? "Answer or explain what's in this image." : text, image: image)
     }
 
     func cancelStream() {
@@ -296,6 +299,16 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
                     return nil
                 case "w":
                     Task { @MainActor in self.hide() }
+                    return nil
+                case "v":
+                    // Text editors drop pasted images, so take them before the paste reaches the field.
+                    let pb = NSPasteboard.general
+                    guard pb.string(forType: .string) == nil,
+                          let image = NSImage(pasteboard: pb),
+                          let tiff = image.tiffRepresentation,
+                          let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:])
+                    else { break }
+                    Task { @MainActor in self.vm.pastedImage = png }
                     return nil
                 default: break
                 }

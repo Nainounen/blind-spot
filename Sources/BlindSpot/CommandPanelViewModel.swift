@@ -13,6 +13,8 @@ final class CommandPanelViewModel {
     var isLoading: Bool = false
     var errorMessage: String? = nil
     var followUpText: String = ""
+    /// PNG pasted into the input bar, sent with the next message.
+    var pastedImage: Data? = nil
     var activeConversation: Conversation? = nil
 
     // Trigger signals for focus management (set to true, view resets to false)
@@ -28,6 +30,7 @@ final class CommandPanelViewModel {
         isLoading = false
         errorMessage = nil
         followUpText = ""
+        pastedImage = nil
     }
 
     func loadConversation(_ conversation: Conversation) {

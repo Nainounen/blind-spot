@@ -689,6 +689,35 @@ private struct ConversationArea: View {
     }
 
     private var inputBar: some View {
+        VStack(alignment: .leading, spacing: 6) {
+        if let data = vm.pastedImage, let image = NSImage(data: data) {
+            HStack(spacing: 8) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 44, height: 44)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .accessibilityLabel("Pasted image")
+                let profile = ProfilesStore.shared.activeProfile
+                if !(profile.visionProvider ?? profile.provider).supportsVision {
+                    Text("This provider can't read images, so it won't be sent.")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
+                Spacer()
+                Button {
+                    vm.pastedImage = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Remove image")
+                .accessibilityLabel("Remove image")
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 8)
+        }
         HStack(alignment: .center, spacing: 10) {
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $vm.followUpText)
@@ -731,16 +760,20 @@ private struct ConversationArea: View {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.title3)
                         .foregroundStyle(
-                            vm.followUpText.trimmingCharacters(in: .whitespaces).isEmpty
-                                ? Color.secondary : Color.accentColor
+                            canSubmit ? Color.accentColor : Color.secondary
                         )
                 }
                 .buttonStyle(.plain)
-                .disabled(vm.followUpText.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(!canSubmit)
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
+        }
+    }
+
+    private var canSubmit: Bool {
+        !vm.followUpText.trimmingCharacters(in: .whitespaces).isEmpty || vm.pastedImage != nil
     }
 
     private var followUpHeight: CGFloat {
@@ -770,7 +803,7 @@ private struct ConversationArea: View {
 
     private func submit() {
         let text = vm.followUpText.trimmingCharacters(in: .whitespaces)
-        guard !text.isEmpty, !vm.isLoading else { return }
+        guard canSubmit, !vm.isLoading else { return }
         vm.followUpText = ""
         onFollowUp(text)
     }
