@@ -1281,12 +1281,14 @@ private struct ProfileEditorView: View {
                         if draft.thinkingEnabled {
                             HStack(spacing: 10) {
                                 fieldLabel("Effort")
+                                    .fixedSize()
                                 Picker("", selection: $draft.reasoningEffort) {
                                     ForEach(ReasoningEffort.allCases, id: \.self) { e in
                                         Text(e.displayName).tag(e)
                                     }
                                 }
                                 .pickerStyle(.segmented)
+                                .labelsHidden()
                                 .onChange(of: draft.reasoningEffort) { _, _ in autosave() }
                             }
                             Text("Auto lets the model pick. Higher effort is better on hard tasks but slower and pricier. Not every model supports every level.")
