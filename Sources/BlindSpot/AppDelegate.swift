@@ -192,7 +192,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Silently skip if onboarding is not done — hotkey shouldn't fire yet
         guard PreferencesStore.shared.onboardingComplete else { return }
 
-        TextCapture.getSelectedText { [weak self] text in
+        // Snapshot the target app now — capture fallbacks are async and the
+        // panel must not become frontmost before we know who to read from.
+        let target = NSWorkspace.shared.frontmostApplication
+        TextCapture.getSelectedText(from: target) { [weak self] text in
             DispatchQueue.main.async {
                 self?.showPanel(query: text ?? "")
             }
@@ -202,11 +205,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func handleVisualContextHotkey() {
         guard PreferencesStore.shared.onboardingComplete else { return }
 
+        let target = NSWorkspace.shared.frontmostApplication
         // Capture AX bounds synchronously before any async work — the focused
         // element may shift once Cmd+E / Cmd+C events fire.
         let fallbackBounds = ScreenshotCapture.selectionOrMouseBounds()
 
-        TextCapture.getSelectedTextWithBounds { result in
+        TextCapture.getSelectedTextWithBounds(from: target) { result in
             let query = result?.text ?? ""
             let rect = result?.selectionBounds ?? fallbackBounds
             Task { @MainActor in
