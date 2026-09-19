@@ -3,6 +3,7 @@ import AppKit
 @MainActor
 final class MenuBarController {
     private var statusItem: NSStatusItem!
+    private var idleIcon: NSImage?
     private let onSettings: () -> Void
     private let onShowConversation: (Conversation) -> Void
     private let onCheckForUpdates: () -> Void
@@ -30,6 +31,7 @@ final class MenuBarController {
                 btn.image = img
             }
         }
+        idleIcon = statusItem.button?.image
         rebuildMenu()
 
         NotificationCenter.default.addObserver(
@@ -47,10 +49,30 @@ final class MenuBarController {
         ) { _ in
             Task { @MainActor [weak self] in self?.rebuildMenu() }
         }
+
+        NotificationCenter.default.addObserver(
+            forName: .meetingListenerDidChange,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor [weak self] in
+                self?.applyStatusIcon()
+                self?.rebuildMenu()
+            }
+        }
     }
 
     func rebuildMenu() {
         let menu = NSMenu()
+
+        let listen = NSMenuItem(
+            title: "Listen to Meeting",
+            action: #selector(toggleMeetingListen),
+            keyEquivalent: ""
+        )
+        listen.target = self
+        listen.state = MeetingListener.shared.isListening ? .on : .off
+        menu.addItem(listen)
 
         menu.addItem(.separator())
 
@@ -197,6 +219,23 @@ final class MenuBarController {
         PreferencesStore.shared.setPanelAppearanceMode(mode)
         CommandPanelController.shared.applyAppearance()
         rebuildMenu()
+    }
+
+    @objc private func toggleMeetingListen() {
+        MeetingListener.shared.toggle()
+    }
+
+    private func applyStatusIcon() {
+        let listening = MeetingListener.shared.isListening
+        if listening {
+            let img = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Listening to meeting")
+            img?.isTemplate = true
+            statusItem.button?.image = img
+            statusItem.button?.toolTip = "Listening to meeting"
+        } else {
+            statusItem.button?.image = idleIcon
+            statusItem.button?.toolTip = "BlindSpot"
+        }
     }
 }
 
