@@ -386,10 +386,11 @@ private struct AccessibilityStep: View {
                     .font(.headline)
             } else {
                 VStack(spacing: 10) {
-                    Button("Open System Settings") {
-                        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-                        NSWorkspace.shared.open(url)
-                        onOpen()
+                    Button("Grant Access") {
+                        Task {
+                            await AppPermission.accessibility.request()
+                            onOpen()
+                        }
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)

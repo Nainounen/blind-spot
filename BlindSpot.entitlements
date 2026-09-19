@@ -8,5 +8,8 @@
        hardened runtime. Required for notarization-compatible auto-updates. -->
   <key>com.apple.security.cs.disable-library-validation</key>
   <true/>
+  <!-- Hardened runtime blocks the mic unless this entitlement is present. -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
 </dict>
 </plist>
