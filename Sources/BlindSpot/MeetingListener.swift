@@ -127,6 +127,7 @@ final class MeetingListener: ObservableObject {
         sessionConversationId = nil
         isListening = true
         NotificationCenter.default.post(name: .meetingListenerDidChange, object: nil)
+        CommandPanelController.shared.showMeetingPanel()
     }
 
     private func requestPermissions() async throws {

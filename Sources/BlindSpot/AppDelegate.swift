@@ -10,6 +10,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var answerAllHotkeyManager: HotkeyManager?
     private var visualContextHotkeyManager: HotkeyManager?
     private var meetingListenHotkeyManager: HotkeyManager?
+    private var clickThroughHotkeyManager: HotkeyManager?
     private var menuBarController: MenuBarController?
     private var onboardingController = OnboardingWindowController()
     private var settingsController = SettingsWindowController()
@@ -101,6 +102,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         meetingListenManager.start()
         meetingListenHotkeyManager = meetingListenManager
 
+        let clickThroughManager = HotkeyManager(
+            hotkey: PreferencesStore.shared.clickThroughHotkey
+        ) { [weak self] in
+            self?.handleClickThroughHotkey()
+        }
+        clickThroughManager.start()
+        clickThroughHotkeyManager = clickThroughManager
+
         // Live-update the tap when the user changes the hotkey in Settings.
         PreferencesStore.shared.$hotkey
             .dropFirst()
@@ -136,6 +145,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] hk in self?.meetingListenHotkeyManager?.update(to: hk) }
+            .store(in: &cancellables)
+
+        PreferencesStore.shared.$clickThroughHotkey
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] hk in self?.clickThroughHotkeyManager?.update(to: hk) }
             .store(in: &cancellables)
 
         // Pause the tap while the user is recording so we don't swallow the
@@ -185,6 +200,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] recording in
                 if recording { self?.meetingListenHotkeyManager?.pause() }
                 else         { self?.meetingListenHotkeyManager?.resume() }
+            }
+            .store(in: &cancellables)
+
+        PreferencesStore.shared.$isRecordingClickThroughHotkey
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] recording in
+                if recording { self?.clickThroughHotkeyManager?.pause() }
+                else         { self?.clickThroughHotkeyManager?.resume() }
             }
             .store(in: &cancellables)
 
@@ -243,6 +266,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func handleMeetingListenHotkey() {
         guard PreferencesStore.shared.onboardingComplete else { return }
         MeetingListener.shared.toggle()
+    }
+
+    private func handleClickThroughHotkey() {
+        guard PreferencesStore.shared.onboardingComplete else { return }
+        CommandPanelController.shared.toggleClickThrough()
     }
 
     private func handleAutoAnswerHotkey() {

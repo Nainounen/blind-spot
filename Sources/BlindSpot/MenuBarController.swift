@@ -74,6 +74,14 @@ final class MenuBarController {
         listen.state = MeetingListener.shared.isListening ? .on : .off
         menu.addItem(listen)
 
+        let chat = NSMenuItem(
+            title: "Open Chat",
+            action: #selector(openChat),
+            keyEquivalent: ""
+        )
+        chat.target = self
+        menu.addItem(chat)
+
         menu.addItem(.separator())
 
         // Profiles submenu
@@ -223,6 +231,10 @@ final class MenuBarController {
 
     @objc private func toggleMeetingListen() {
         MeetingListener.shared.toggle()
+    }
+
+    @objc private func openChat() {
+        CommandPanelController.shared.showChat()
     }
 
     private func applyStatusIcon() {

@@ -98,6 +98,8 @@ final class PreferencesStore: ObservableObject {
     @Published var isRecordingVisualContextHotkey: Bool = false
     @Published var meetingListenHotkey: Hotkey
     @Published var isRecordingMeetingListenHotkey: Bool = false
+    @Published var clickThroughHotkey: Hotkey
+    @Published var isRecordingClickThroughHotkey: Bool = false
 
     /// Names of models installed on the local Ollama server (e.g. `llama3.2:latest`).
     @Published var installedOllamaModels: [String] = []
@@ -184,6 +186,12 @@ final class PreferencesStore: ObservableObject {
             meetingListenHotkey = hk
         } else {
             meetingListenHotkey = .defaultMeetingListen
+        }
+        if let data = UserDefaults.standard.data(forKey: "clickThroughHotkey"),
+           let hk = try? JSONDecoder().decode(Hotkey.self, from: data) {
+            clickThroughHotkey = hk
+        } else {
+            clickThroughHotkey = .defaultClickThrough
         }
         let storedMax = UserDefaults.standard.integer(forKey: "maxTokens")
         maxTokens = storedMax > 0 ? storedMax : 4096
@@ -310,6 +318,15 @@ final class PreferencesStore: ObservableObject {
     }
 
     func resetMeetingListenHotkey() { setMeetingListenHotkey(.defaultMeetingListen) }
+
+    func setClickThroughHotkey(_ hk: Hotkey) {
+        clickThroughHotkey = hk
+        if let data = try? JSONEncoder().encode(hk) {
+            defaults.set(data, forKey: "clickThroughHotkey")
+        }
+    }
+
+    func resetClickThroughHotkey() { setClickThroughHotkey(.defaultClickThrough) }
 
     func setMaxTokens(_ tokens: Int) {
         maxTokens = max(256, min(8192, tokens))

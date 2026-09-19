@@ -6,7 +6,8 @@ import SwiftUI
 // NSPanel returns true — but we make it explicit to be safe.
 
 private class CommandPanel: NSPanel {
-    override var canBecomeKey: Bool { true }
+    var allowsClickThrough = false
+    override var canBecomeKey: Bool { !allowsClickThrough }
     override var canBecomeMain: Bool { false }
 }
 
@@ -93,6 +94,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
             panel?.orderFrontRegardless()
         }
         installKeyMonitor()
+        applyClickThrough()
 
         if let q = query, !q.isEmpty {
             startTurn(userText: q, image: image)
@@ -111,18 +113,45 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         panel?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         installKeyMonitor()
+        applyClickThrough()
     }
 
     func hide() {
         streamTask?.cancel()
         removeKeyMonitor()
         shownWithoutStealingFocus = false
+        vm.clickThroughEnabled = false
+        panel?.allowsClickThrough = false
+        panel?.ignoresMouseEvents = false
         panel?.orderOut(nil)
         let prev = previousApp
         previousApp = nil
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             prev?.activate()
         }
+    }
+
+    /// Open the chat overlay without starting a query. Used by the menu bar.
+    func showChat() {
+        setClickThrough(false)
+        show(query: nil, stealFocus: true)
+    }
+
+    /// Open (or keep) the overlay for a live meeting without stealing Zoom/Meet.
+    /// Click-through starts on so the call still receives mouse and keyboard.
+    func showMeetingPanel() {
+        show(query: nil, stealFocus: false)
+        setClickThrough(true)
+    }
+
+    func toggleClickThrough() {
+        guard panel?.isVisible == true else { return }
+        setClickThrough(!vm.clickThroughEnabled)
+    }
+
+    func setClickThrough(_ enabled: Bool) {
+        vm.clickThroughEnabled = enabled
+        applyClickThrough()
     }
 
     func sendFollowUp(_ text: String) {
@@ -146,6 +175,27 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         case .system: panel.appearance = nil
         case .light:  panel.appearance = NSAppearance(named: .aqua)
         case .dark:   panel.appearance = NSAppearance(named: .darkAqua)
+        }
+    }
+
+    /// Mouse and keyboard pass through to the app under the overlay.
+    /// Disable via the same button or ⌘⌥T — the hotkey is global because the
+    /// window cannot receive clicks while this is on.
+    private func applyClickThrough() {
+        guard let panel else { return }
+        let on = vm.clickThroughEnabled
+        panel.allowsClickThrough = on
+        panel.ignoresMouseEvents = on
+        if on {
+            shownWithoutStealingFocus = true
+            if panel.isKeyWindow {
+                panel.resignKey()
+            }
+        } else if panel.isVisible {
+            shownWithoutStealingFocus = false
+            panel.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            vm.focusInput = true
         }
     }
 
@@ -415,7 +465,8 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
                 onFollowUp: { [weak self] text in self?.sendFollowUp(text) },
                 onSelectConversation: { [weak self] conv in self?.selectConversation(conv) },
                 onNewConversation: { [weak self] in self?.newConversation() },
-                onCancel: { [weak self] in self?.cancelStream() }
+                onCancel: { [weak self] in self?.cancelStream() },
+                onToggleClickThrough: { [weak self] in self?.toggleClickThrough() }
             )
         )
         // Prevent SwiftUI from overriding the panel frame via intrinsic content size.

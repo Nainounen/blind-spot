@@ -16,6 +16,8 @@ final class CommandPanelViewModel {
     /// PNG pasted into the input bar, sent with the next message.
     var pastedImage: Data? = nil
     var activeConversation: Conversation? = nil
+    /// When true, mouse and keyboard pass through the overlay to the app below.
+    var clickThroughEnabled: Bool = false
 
     // Trigger signals for focus management (set to true, view resets to false)
     var focusInput: Bool = false

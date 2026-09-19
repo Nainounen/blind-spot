@@ -592,6 +592,17 @@ struct SettingsView: View {
                 )
                 Divider().opacity(0.3).padding(.leading, 84)
                 hotkeyRow(
+                    label: "Click-Through",
+                    hotkey: prefs.clickThroughHotkey,
+                    isRecording: $prefs.isRecordingClickThroughHotkey,
+                    onCapture: { prefs.setClickThroughHotkey($0) },
+                    defaultHotkey: .defaultClickThrough,
+                    resetLabel: "⌘⌥T",
+                    resetAction: { prefs.resetClickThroughHotkey() },
+                    description: "Clicks and typing pass through the overlay"
+                )
+                Divider().opacity(0.3).padding(.leading, 84)
+                hotkeyRow(
                     label: "Auto-Answer",
                     hotkey: prefs.autoAnswerHotkey,
                     isRecording: $prefs.isRecordingAutoAnswerHotkey,

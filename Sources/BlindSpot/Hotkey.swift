@@ -40,6 +40,11 @@ struct Hotkey: Codable, Equatable {
         modifiers: NSEvent.ModifierFlags([.command, .option]).rawValue
     )
 
+    static let defaultClickThrough = Hotkey(
+        keyCode: 17, // T
+        modifiers: NSEvent.ModifierFlags([.command, .option]).rawValue
+    )
+
     var modifierFlags: NSEvent.ModifierFlags {
         NSEvent.ModifierFlags(rawValue: modifiers)
     }
