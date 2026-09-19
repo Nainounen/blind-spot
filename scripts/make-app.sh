@@ -56,6 +56,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSUIElement</key>             <true/>
   <key>NSAccessibilityUsageDescription</key>
   <string>BlindSpot reads your selected text to answer AI questions. It never accesses content you haven't selected.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>BlindSpot uses your microphone to transcribe your voice separately from other people in a meeting.</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>BlindSpot transcribes meeting audio on-device so it can answer what other people just asked, without sending recordings to a transcription service.</string>
   <key>NSHumanReadableCopyright</key><string>MIT License</string>
   <key>SUPublicEDKey</key>
   <string>UP9yKSlzPYGk1OTENgKcPD3+vMETH70FbFHYYrTk9Yo=</string>

@@ -35,6 +35,11 @@ struct Hotkey: Codable, Equatable {
         modifiers: NSEvent.ModifierFlags([.command, .shift, .option]).rawValue
     )
 
+    static let defaultMeetingListen = Hotkey(
+        keyCode: 37, // L
+        modifiers: NSEvent.ModifierFlags([.command, .option]).rawValue
+    )
+
     var modifierFlags: NSEvent.ModifierFlags {
         NSEvent.ModifierFlags(rawValue: modifiers)
     }

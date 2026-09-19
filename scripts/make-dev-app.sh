@@ -34,6 +34,10 @@ cat > "${APP}/Contents/Info.plist" << 'PLIST'
     <string>NSApplication</string>
     <key>NSAccessibilityUsageDescription</key>
     <string>BlindSpot reads your selected text to answer questions about it.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>BlindSpot uses your microphone to transcribe your voice separately from other people in a meeting.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>BlindSpot transcribes meeting audio on-device so it can answer what other people just asked.</string>
 </dict>
 </plist>
 PLIST

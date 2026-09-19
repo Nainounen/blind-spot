@@ -1,5 +1,7 @@
 import SwiftUI
 import AppKit
+import AVFoundation
+import Speech
 
 // MARK: - Settings tab
 
@@ -80,6 +82,8 @@ struct SettingsView: View {
     @State private var showKey: Bool = false
     @State private var axGranted: Bool = AXIsProcessTrusted()
     @State private var screenRecordingGranted: Bool = CGPreflightScreenCaptureAccess()
+    @State private var microphoneGranted: Bool = AVAudioApplication.shared.recordPermission == .granted
+    @State private var speechGranted: Bool = SFSpeechRecognizer.authorizationStatus() == .authorized
 
     var body: some View {
         HStack(spacing: 0) {
@@ -572,6 +576,17 @@ struct SettingsView: View {
                 )
                 Divider().opacity(0.3).padding(.leading, 84)
                 hotkeyRow(
+                    label: "Listen",
+                    hotkey: prefs.meetingListenHotkey,
+                    isRecording: $prefs.isRecordingMeetingListenHotkey,
+                    onCapture: { prefs.setMeetingListenHotkey($0) },
+                    defaultHotkey: .defaultMeetingListen,
+                    resetLabel: "⌘⌥L",
+                    resetAction: { prefs.resetMeetingListenHotkey() },
+                    description: "Toggle meeting listener"
+                )
+                Divider().opacity(0.3).padding(.leading, 84)
+                hotkeyRow(
                     label: "Auto-Answer",
                     hotkey: prefs.autoAnswerHotkey,
                     isRecording: $prefs.isRecordingAutoAnswerHotkey,
@@ -656,7 +671,7 @@ struct SettingsView: View {
                     icon: "text.cursor",
                     title: "Accessibility",
                     description: "Read selected text from any app without touching the clipboard, and listen for global hotkeys.",
-                    usedBy: "⌘⇧Space, ⌘⇧⌥Space, ⌘⌥A, ⌘⌥⇧A, ⌘⌥Q",
+                    usedBy: "⌘⇧Space, ⌘⇧⌥Space, ⌘⌥A, ⌘⌥⇧A, ⌘⌥L, ⌘⌥Q",
                     granted: axGranted,
                     openURL: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
                 )
@@ -667,13 +682,35 @@ struct SettingsView: View {
                 permissionRow(
                     icon: "camera.viewfinder",
                     title: "Screen Recording",
-                    description: "Capture a screenshot of the area around your selected text so the AI can see visual context like UI, diagrams, or code layout.",
-                    usedBy: "⌘⇧⌥Space (Visual Context)",
+                    description: "Capture a screenshot around selected text, and capture system audio so other people in a meeting can be transcribed separately from you. Use headphones for clean Me vs Them separation.",
+                    usedBy: "⌘⇧⌥Space (Visual Context), ⌘⌥L (Listen to Meeting)",
                     granted: screenRecordingGranted,
                     openURL: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
                 )
 
-                if axGranted && screenRecordingGranted {
+                Divider()
+
+                permissionRow(
+                    icon: "mic",
+                    title: "Microphone",
+                    description: "Capture your voice as a separate stream from meeting audio so BlindSpot can tell you apart from other speakers.",
+                    usedBy: "⌘⌥L (Listen to Meeting)",
+                    granted: microphoneGranted,
+                    openURL: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
+                )
+
+                Divider()
+
+                permissionRow(
+                    icon: "waveform",
+                    title: "Speech Recognition",
+                    description: "Transcribe Me and Them on-device. Audio is not sent to Apple or your AI provider for transcription.",
+                    usedBy: "⌘⌥L (Listen to Meeting)",
+                    granted: speechGranted,
+                    openURL: "x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition"
+                )
+
+                if axGranted && screenRecordingGranted && microphoneGranted && speechGranted {
                     Divider()
                     Label("All permissions granted", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
@@ -683,13 +720,19 @@ struct SettingsView: View {
         }
         .onAppear {
             screenRecordingGranted = CGPreflightScreenCaptureAccess()
+            microphoneGranted = AVAudioApplication.shared.recordPermission == .granted
+            speechGranted = SFSpeechRecognizer.authorizationStatus() == .authorized
             Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { t in
                 let axOK = AXIsProcessTrusted()
                 let srOK = CGPreflightScreenCaptureAccess()
-                if axOK && srOK { t.invalidate() }
+                let micOK = AVAudioApplication.shared.recordPermission == .granted
+                let speechOK = SFSpeechRecognizer.authorizationStatus() == .authorized
+                if axOK && srOK && micOK && speechOK { t.invalidate() }
                 Task { @MainActor in
                     axGranted = axOK
                     screenRecordingGranted = srOK
+                    microphoneGranted = micOK
+                    speechGranted = speechOK
                 }
             }
         }
