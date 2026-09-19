@@ -63,6 +63,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window?.makeKeyAndOrderFront(nil)
     }
 
+    func windowDidBecomeKey(_ notification: Notification) {
+        NotificationCenter.default.post(name: .permissionsDidChange, object: nil)
+    }
+
     func windowWillClose(_ notification: Notification) {
         window = nil
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -84,6 +88,7 @@ struct SettingsView: View {
     @State private var screenRecordingGranted: Bool = CGPreflightScreenCaptureAccess()
     @State private var microphoneGranted: Bool = AVAudioApplication.shared.recordPermission == .granted
     @State private var speechGranted: Bool = SFSpeechRecognizer.authorizationStatus() == .authorized
+    @State private var permissionPoll: Timer?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -673,7 +678,7 @@ struct SettingsView: View {
                     description: "Read selected text from any app without touching the clipboard, and listen for global hotkeys.",
                     usedBy: "⌘⇧Space, ⌘⇧⌥Space, ⌘⌥A, ⌘⌥⇧A, ⌘⌥L, ⌘⌥Q",
                     granted: axGranted,
-                    openURL: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+                    permission: .accessibility
                 )
 
                 Divider()
@@ -685,7 +690,7 @@ struct SettingsView: View {
                     description: "Capture a screenshot around selected text, and capture system audio so other people in a meeting can be transcribed separately from you. Use headphones for clean Me vs Them separation.",
                     usedBy: "⌘⇧⌥Space (Visual Context), ⌘⌥L (Listen to Meeting)",
                     granted: screenRecordingGranted,
-                    openURL: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+                    permission: .screenRecording
                 )
 
                 Divider()
@@ -696,7 +701,7 @@ struct SettingsView: View {
                     description: "Capture your voice as a separate stream from meeting audio so BlindSpot can tell you apart from other speakers.",
                     usedBy: "⌘⌥L (Listen to Meeting)",
                     granted: microphoneGranted,
-                    openURL: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
+                    permission: .microphone
                 )
 
                 Divider()
@@ -707,7 +712,7 @@ struct SettingsView: View {
                     description: "Transcribe Me and Them on-device. Audio is not sent to Apple or your AI provider for transcription.",
                     usedBy: "⌘⌥L (Listen to Meeting)",
                     granted: speechGranted,
-                    openURL: "x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition"
+                    permission: .speechRecognition
                 )
 
                 if axGranted && screenRecordingGranted && microphoneGranted && speechGranted {
@@ -718,24 +723,34 @@ struct SettingsView: View {
                 }
             }
         }
-        .onAppear {
-            screenRecordingGranted = CGPreflightScreenCaptureAccess()
-            microphoneGranted = AVAudioApplication.shared.recordPermission == .granted
-            speechGranted = SFSpeechRecognizer.authorizationStatus() == .authorized
-            Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { t in
-                let axOK = AXIsProcessTrusted()
-                let srOK = CGPreflightScreenCaptureAccess()
-                let micOK = AVAudioApplication.shared.recordPermission == .granted
-                let speechOK = SFSpeechRecognizer.authorizationStatus() == .authorized
-                if axOK && srOK && micOK && speechOK { t.invalidate() }
-                Task { @MainActor in
-                    axGranted = axOK
-                    screenRecordingGranted = srOK
-                    microphoneGranted = micOK
-                    speechGranted = speechOK
-                }
-            }
+        .onAppear { startPermissionPoll() }
+        .onDisappear { stopPermissionPoll() }
+        .onReceive(NotificationCenter.default.publisher(for: .permissionsDidChange)) { _ in
+            refreshPermissions()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshPermissions()
+        }
+    }
+
+    private func refreshPermissions() {
+        axGranted = AXIsProcessTrusted()
+        screenRecordingGranted = CGPreflightScreenCaptureAccess()
+        microphoneGranted = AVAudioApplication.shared.recordPermission == .granted
+        speechGranted = SFSpeechRecognizer.authorizationStatus() == .authorized
+    }
+
+    private func startPermissionPoll() {
+        refreshPermissions()
+        permissionPoll?.invalidate()
+        permissionPoll = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: true) { _ in
+            Task { @MainActor in refreshPermissions() }
+        }
+    }
+
+    private func stopPermissionPoll() {
+        permissionPoll?.invalidate()
+        permissionPoll = nil
     }
 
     private func permissionRow(
@@ -744,7 +759,7 @@ struct SettingsView: View {
         description: String,
         usedBy: String,
         granted: Bool,
-        openURL: String
+        permission: AppPermission
     ) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: granted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
@@ -761,16 +776,35 @@ struct SettingsView: View {
                 Text(usedBy)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+                if permission == .screenRecording && !granted {
+                    Text("After enabling in System Settings, relaunch BlindSpot — macOS caches this permission until the process restarts.")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Spacer(minLength: 8)
 
             if !granted {
-                Button("Open Settings") {
-                    NSWorkspace.shared.open(URL(string: openURL)!)
+                VStack(alignment: .trailing, spacing: 6) {
+                    Button("Grant Access") {
+                        Task {
+                            await permission.request()
+                            refreshPermissions()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+
+                    if permission == .screenRecording {
+                        Button("Relaunch") {
+                            AppPermission.relaunch()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
             }
         }
     }
