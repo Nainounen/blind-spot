@@ -6,7 +6,8 @@ import SwiftUI
 // NSPanel returns true — but we make it explicit to be safe.
 
 private class CommandPanel: NSPanel {
-    override var canBecomeKey: Bool { true }
+    var allowsClickThrough = false
+    override var canBecomeKey: Bool { !allowsClickThrough }
     override var canBecomeMain: Bool { false }
 }
 
@@ -22,6 +23,9 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
     private var previousApp: NSRunningApplication?
     private var keyMonitor: Any?
     private var globalEscMonitor: Any?
+    /// Set when the panel is shown without becoming key (meeting auto-solve).
+    /// `closeOnFocusLoss` must not hide us — we are not key by design.
+    private var shownWithoutStealingFocus = false
 
     private override init() {}
 
@@ -35,41 +39,73 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
     ///
     /// When the panel is already visible, appends to the current conversation
     /// instead of starting a new one — so repeated hotkey presses build context.
-    func show(query: String?, image: Data? = nil) {
+    ///
+    /// `conversation` restores an existing chat (meeting auto-solve reuses one
+    /// session). `stealFocus: false` orders the panel front without activating
+    /// so a Zoom/Meet call keeps keyboard focus.
+    func show(
+        query: String?,
+        image: Data? = nil,
+        conversation: Conversation? = nil,
+        stealFocus: Bool = true
+    ) {
+        shownWithoutStealingFocus = !stealFocus
+
         // Already visible — append to current conversation
         if let panel, panel.isVisible {
-            NSApp.activate(ignoringOtherApps: true)
+            if stealFocus {
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            if let conversation, vm.activeConversation?.id != conversation.id {
+                streamTask?.cancel()
+                vm.loadConversation(conversation)
+            }
             if let q = query, !q.isEmpty {
                 startTurn(userText: q, image: image)
-            } else {
+            } else if stealFocus {
                 vm.focusInput = true
             }
             return
         }
 
-        previousApp = NSWorkspace.shared.frontmostApplication
+        if stealFocus {
+            previousApp = NSWorkspace.shared.frontmostApplication
+        }
         buildPanelIfNeeded()
         resizePanel(animated: false, reposition: true)
 
-        let profile = ProfilesStore.shared.activeProfile
-        vm.startNewConversation(profileId: profile.id)
+        if let conversation {
+            vm.loadConversation(conversation)
+        } else {
+            let profile = ProfilesStore.shared.activeProfile
+            vm.startNewConversation(profileId: profile.id)
+            if !stealFocus {
+                vm.activeConversation?.title = "Meeting"
+            }
+        }
 
-        panel?.makeKeyAndOrderFront(nil)
-        // Activate the app so the panel appears above the previously-active app.
-        // The deprecated flag is ignored on macOS 14+ (behaves as polite activation),
-        // but activation is still granted because we're responding to a user event.
-        NSApp.activate(ignoringOtherApps: true)
+        if stealFocus {
+            panel?.makeKeyAndOrderFront(nil)
+            // Activate the app so the panel appears above the previously-active app.
+            // The deprecated flag is ignored on macOS 14+ (behaves as polite activation),
+            // but activation is still granted because we're responding to a user event.
+            NSApp.activate(ignoringOtherApps: true)
+        } else {
+            panel?.orderFrontRegardless()
+        }
         installKeyMonitor()
+        applyClickThrough()
 
         if let q = query, !q.isEmpty {
             startTurn(userText: q, image: image)
-        } else {
+        } else if stealFocus {
             vm.focusInput = true
         }
     }
 
     /// Restore and display an existing conversation.
     func show(conversation: Conversation) {
+        shownWithoutStealingFocus = false
         previousApp = NSWorkspace.shared.frontmostApplication
         buildPanelIfNeeded()
         resizePanel(animated: false, reposition: true)
@@ -77,17 +113,45 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         panel?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         installKeyMonitor()
+        applyClickThrough()
     }
 
     func hide() {
         streamTask?.cancel()
         removeKeyMonitor()
+        shownWithoutStealingFocus = false
+        vm.clickThroughEnabled = false
+        panel?.allowsClickThrough = false
+        panel?.ignoresMouseEvents = false
         panel?.orderOut(nil)
         let prev = previousApp
         previousApp = nil
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             prev?.activate()
         }
+    }
+
+    /// Open the chat overlay without starting a query. Used by the menu bar.
+    func showChat() {
+        setClickThrough(false)
+        show(query: nil, stealFocus: true)
+    }
+
+    /// Open (or keep) the overlay for a live meeting without stealing Zoom/Meet.
+    /// Click-through starts on so the call still receives mouse and keyboard.
+    func showMeetingPanel() {
+        show(query: nil, stealFocus: false)
+        setClickThrough(true)
+    }
+
+    func toggleClickThrough() {
+        guard panel?.isVisible == true else { return }
+        setClickThrough(!vm.clickThroughEnabled)
+    }
+
+    func setClickThrough(_ enabled: Bool) {
+        vm.clickThroughEnabled = enabled
+        applyClickThrough()
     }
 
     func sendFollowUp(_ text: String) {
@@ -111,6 +175,27 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         case .system: panel.appearance = nil
         case .light:  panel.appearance = NSAppearance(named: .aqua)
         case .dark:   panel.appearance = NSAppearance(named: .darkAqua)
+        }
+    }
+
+    /// Mouse and keyboard pass through to the app under the overlay.
+    /// Disable via the same button or ⌘⌥T — the hotkey is global because the
+    /// window cannot receive clicks while this is on.
+    private func applyClickThrough() {
+        guard let panel else { return }
+        let on = vm.clickThroughEnabled
+        panel.allowsClickThrough = on
+        panel.ignoresMouseEvents = on
+        if on {
+            shownWithoutStealingFocus = true
+            if panel.isKeyWindow {
+                panel.resignKey()
+            }
+        } else if panel.isVisible {
+            shownWithoutStealingFocus = false
+            panel.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            vm.focusInput = true
         }
     }
 
@@ -259,13 +344,19 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
         PreferencesStore.shared.savePanelCenter(center)
     }
 
+    func windowDidBecomeKey(_ notification: Notification) {
+        shownWithoutStealingFocus = false
+    }
+
     func windowDidResignKey(_ notification: Notification) {
         guard PreferencesStore.shared.closeOnFocusLoss else { return }
+        guard !shownWithoutStealingFocus else { return }
         // Defer one run loop so NSApp.keyWindow reflects the new state.
         // If an alert or sheet within BlindSpot is now key, don't hide.
         DispatchQueue.main.async { [weak self] in
+            guard let self, !self.shownWithoutStealingFocus else { return }
             guard NSApp.keyWindow == nil else { return }
-            self?.hide()
+            self.hide()
         }
     }
 
@@ -374,7 +465,8 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
                 onFollowUp: { [weak self] text in self?.sendFollowUp(text) },
                 onSelectConversation: { [weak self] conv in self?.selectConversation(conv) },
                 onNewConversation: { [weak self] in self?.newConversation() },
-                onCancel: { [weak self] in self?.cancelStream() }
+                onCancel: { [weak self] in self?.cancelStream() },
+                onToggleClickThrough: { [weak self] in self?.toggleClickThrough() }
             )
         )
         // Prevent SwiftUI from overriding the panel frame via intrinsic content size.

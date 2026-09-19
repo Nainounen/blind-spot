@@ -809,10 +809,43 @@ private struct ConversationArea: View {
     }
 }
 
+private struct ClickThroughButton: View {
+    var enabled: Bool
+    var onToggle: () -> Void
+    @ObservedObject private var prefs = PreferencesStore.shared
+
+    var body: some View {
+        Button(action: onToggle) {
+            HStack(spacing: 4) {
+                Image(systemName: enabled ? "cursorarrow.slash" : "cursorarrow")
+                    .font(.system(size: 10, weight: .semibold))
+                Text(enabled ? "Click-through" : "Interactive")
+                    .font(.caption2)
+                Text(prefs.clickThroughHotkey.displayString)
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+            }
+            .foregroundStyle(enabled ? Color.accentColor : Color.secondary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(
+                Color.accentColor.opacity(enabled ? 0.12 : 0.06),
+                in: RoundedRectangle(cornerRadius: 4)
+            )
+        }
+        .buttonStyle(.plain)
+        .help(enabled
+              ? "Mouse and keyboard go to the app underneath. Press \(prefs.clickThroughHotkey.displayString) to interact with this overlay — the button cannot be clicked while click-through is on."
+              : "Pass mouse and keyboard through this overlay to the app below.")
+    }
+}
+
 // MARK: - Bottom status bar
 
 private struct StatusBar: View {
+    @Bindable var vm: CommandPanelViewModel
     var onClose: () -> Void
+    var onToggleClickThrough: () -> Void
 
     var body: some View {
         let active = ProfilesStore.shared.activeProfile
@@ -861,6 +894,9 @@ private struct StatusBar: View {
             }
 
             Spacer()
+
+            ClickThroughButton(enabled: vm.clickThroughEnabled, onToggle: onToggleClickThrough)
+
             Text("ESC")
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.tertiary)
@@ -898,6 +934,7 @@ struct CommandPanelView: View {
     var onSelectConversation: (Conversation) -> Void
     var onNewConversation: () -> Void
     var onCancel: () -> Void
+    var onToggleClickThrough: () -> Void
 
     @State private var conversations: [Conversation] = []
     @State private var folders: [Folder] = []
@@ -967,6 +1004,8 @@ struct CommandPanelView: View {
 
                 Spacer()
 
+                ClickThroughButton(enabled: vm.clickThroughEnabled, onToggle: onToggleClickThrough)
+
                 Button(action: onClose) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 14))
@@ -1020,7 +1059,11 @@ struct CommandPanelView: View {
                     onClose: onClose
                 )
                 Divider()
-                StatusBar(onClose: onClose)
+                StatusBar(
+                    vm: vm,
+                    onClose: onClose,
+                    onToggleClickThrough: onToggleClickThrough
+                )
             }
             .frame(maxWidth: .infinity)
         }
