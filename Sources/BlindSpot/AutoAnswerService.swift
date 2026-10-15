@@ -35,6 +35,7 @@ private struct ChoiceElement {
 final class AutoAnswerService {
     static let shared = AutoAnswerService()
     private var currentTask: Task<Void, Never>?
+    private var historyRunID = UUID().uuidString
 
     private init() {}
 
@@ -44,6 +45,7 @@ final class AutoAnswerService {
 
     func run() {
         currentTask?.cancel()
+        historyRunID = UUID().uuidString
         AutoAnswerProgress.shared.dismiss()
         if startBrowserQuestion() { return }
         guard AXIsProcessTrusted() else { return }
@@ -59,6 +61,7 @@ final class AutoAnswerService {
 
     func runAnswerAll() {
         currentTask?.cancel()
+        historyRunID = UUID().uuidString
         AutoAnswerProgress.shared.dismiss()
         if startBrowserQuestion(answerAll: true) { return }
         guard AXIsProcessTrusted() else { return }
@@ -142,6 +145,7 @@ final class AutoAnswerService {
                 return true
             }
             let question = try bridge.extract()
+            let profile = ProfilesStore.shared.activeProfile
             let activity = AutoAnswerProgress.shared.begin()
             currentTask = Task {
                 defer { AutoAnswerProgress.shared.end(activity) }
@@ -150,9 +154,12 @@ final class AutoAnswerService {
                     let payload: [String: Any] = ["question": question.title, "description": question.description,
                                                   "options": question.options, "details": question.details]
                     let user = String(decoding: try JSONSerialization.data(withJSONObject: payload), as: UTF8.self)
-                    let response = try await streamAI(system: system, user: user)
+                    let response = try await streamAI(system: system, user: user, profile: profile, recordHistory: false)
                     try Task.checkCancellation()
                     try await bridge.apply(response, to: question)
+                    AutoAnswerHistory.record(sessionKey: bridge.historySessionKey, title: bridge.historyTitle,
+                                             profile: profile, question: question.historyQuestion,
+                                             answer: question.historyAnswer(response))
                 } catch is CancellationError {
                     return
                 } catch {
@@ -679,8 +686,10 @@ final class AutoAnswerService {
         return try await streamAI(system: systemPrompt, user: userMessage)
     }
 
-    private func streamAI(system: String, user: String) async throws -> String {
-        let profile = ProfilesStore.shared.activeProfile
+    private func streamAI(system: String, user: String, profile selectedProfile: AIProfile? = nil,
+                          recordHistory: Bool = true) async throws -> String {
+        let profile = selectedProfile ?? ProfilesStore.shared.activeProfile
+        let runID = historyRunID
         let profileInstructions = profile.fullSystemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
         let systemInstructions = profileInstructions.isEmpty ? system :
             profileInstructions + "\n\nAuto-Answer requirements:\n" +
@@ -696,7 +705,13 @@ final class AutoAnswerService {
             guard !Task.isCancelled else { throw CancellationError() }
             response += chunk
         }
-        return response.trimmingCharacters(in: .whitespacesAndNewlines)
+        try Task.checkCancellation()
+        let answer = response.trimmingCharacters(in: .whitespacesAndNewlines)
+        if recordHistory && !answer.isEmpty {
+            AutoAnswerHistory.record(sessionKey: runID, title: "Auto-Answer", profile: profile,
+                                     question: user, answer: "Generated answer (filling not verified):\n\n" + answer)
+        }
+        return answer
     }
 
     // ──────────────────────────────────────────────

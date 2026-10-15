@@ -19,11 +19,25 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
     let vm = CommandPanelViewModel()
     private var panel: CommandPanel?
     private var streamTask: Task<Void, Never>?
+    private var streamID = UUID()
     private var previousApp: NSRunningApplication?
     private var keyMonitor: Any?
     private var globalEscMonitor: Any?
 
-    private override init() {}
+    private override init() {
+        super.init()
+        NotificationCenter.default.addObserver(self, selector: #selector(refreshAutoAnswerConversation),
+                                               name: .conversationsDidUpdate, object: nil)
+    }
+
+    @objc private func refreshAutoAnswerConversation() {
+        guard !vm.isLoading, let current = vm.activeConversation, current.autoAnswerSessionKey != nil,
+              let latest = ConversationStore.shared.conversation(id: current.id),
+              latest.messages.count != current.messages.count else { return }
+        let draft = vm.followUpText
+        vm.loadConversation(latest)
+        vm.followUpText = draft
+    }
 
     // MARK: - Public API
 
@@ -70,6 +84,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
 
     /// Restore and display an existing conversation.
     func show(conversation: Conversation) {
+        cancelStream()
         previousApp = NSWorkspace.shared.frontmostApplication
         buildPanelIfNeeded()
         resizePanel(animated: false, reposition: true)
@@ -80,7 +95,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
     }
 
     func hide() {
-        streamTask?.cancel()
+        cancelStream()
         removeKeyMonitor()
         panel?.orderOut(nil)
         let prev = previousApp
@@ -99,6 +114,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
     }
 
     func cancelStream() {
+        streamID = UUID()
         streamTask?.cancel()
         streamTask = nil
         vm.isLoading = false
@@ -148,12 +164,12 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
     }
 
     func selectConversation(_ conv: Conversation) {
-        streamTask?.cancel()
+        cancelStream()
         vm.loadConversation(conv)
     }
 
     func newConversation() {
-        streamTask?.cancel()
+        cancelStream()
         vm.startNewConversation(profileId: ProfilesStore.shared.activeProfile.id)
         vm.focusInput = true
         resizePanel(animated: true)
@@ -162,6 +178,9 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
     // MARK: - Conversation / streaming
 
     private func startTurn(userText: String, image: Data? = nil) {
+        guard !vm.isLoading else { return }
+        let requestID = UUID()
+        streamID = requestID
         let profile = ProfilesStore.shared.activeProfile
 
         // Inject system prompt on first turn
@@ -208,12 +227,14 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
                     lastFlush = .now
                     let snapshot = fullResponse
                     await MainActor.run {
+                        guard self.streamID == requestID else { return }
                         guard turnIndex < vm.turns.count else { return }
                         vm.turns[turnIndex].response = snapshot
                     }
                 }
                 let completed = fullResponse
                 await MainActor.run {
+                    guard self.streamID == requestID, !Task.isCancelled else { return }
                     if turnIndex < vm.turns.count { vm.turns[turnIndex].response = completed }
                     vm.isLoading = false
                     guard !completed.isEmpty else {
@@ -226,7 +247,14 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
                         ConversationMessage(role: .assistant, content: completed)
                     )
                     if let conv = vm.activeConversation {
-                        ConversationStore.shared.upsert(conv)
+                        if conv.autoAnswerSessionKey != nil,
+                           var latest = ConversationStore.shared.conversation(id: conv.id) {
+                            // Auto-Answer may have appended other turns while this follow-up streamed.
+                            latest.messages.append(contentsOf: conv.messages.suffix(2))
+                            ConversationStore.shared.upsert(latest)
+                        } else {
+                            ConversationStore.shared.upsert(conv)
+                        }
                         vm.activeConversation = ConversationStore.shared.conversation(id: conv.id)
                     }
                     if PreferencesStore.shared.autoCopyLastResponse {
@@ -236,6 +264,7 @@ final class CommandPanelController: NSObject, NSWindowDelegate {
                 }
             } catch {
                 await MainActor.run {
+                    guard self.streamID == requestID else { return }
                     vm.isLoading = false
                     if error is CancellationError {
                         // Flush the last coalesced chunk so a cancelled stream

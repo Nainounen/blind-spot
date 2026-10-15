@@ -25,6 +25,7 @@ struct Conversation: Codable, Identifiable {
     var folderId: UUID?
     var createdAt: Date
     var updatedAt: Date
+    var autoAnswerSessionKey: String?
 
     init(
         id: UUID = UUID(),
@@ -42,6 +43,7 @@ struct Conversation: Codable, Identifiable {
         self.folderId = folderId
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.autoAnswerSessionKey = nil
     }
 }
 

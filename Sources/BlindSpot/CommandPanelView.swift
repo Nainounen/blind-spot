@@ -166,174 +166,6 @@ private func relativeTime(_ date: Date) -> String {
     return f.string(from: date)
 }
 
-private struct ConversationRow: View {
-    let conversation: Conversation
-    let isSelected: Bool
-    let folders: [Folder]
-    var onDelete: () -> Void
-    var onSelect: () -> Void
-
-    @State private var isHovered = false
-    @State private var showDeleteConfirm = false
-
-    var body: some View {
-        HStack(spacing: 4) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(conversation.title.isEmpty ? "New conversation" : conversation.title)
-                    .font(.callout)
-                    .lineLimit(1)
-                Text(relativeTime(conversation.updatedAt))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            if isHovered {
-                Button { showDeleteConfirm = true } label: {
-                    Image(systemName: "trash")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .frame(width: 22, height: 22)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Delete conversation")
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            isSelected
-                ? Color.accentColor.opacity(0.15)
-                : isHovered ? Color.primary.opacity(0.04) : Color.clear,
-            in: RoundedRectangle(cornerRadius: 6)
-        )
-        .contentShape(RoundedRectangle(cornerRadius: 6))
-        .onHover { isHovered = $0 }
-        .onTapGesture { onSelect() }
-        .contextMenu {
-            Menu("Export") {
-                Button("Export as Markdown") {
-                    exportConversation(conversation, format: .markdown)
-                }
-                Button("Export as JSON") {
-                    exportConversation(conversation, format: .json)
-                }
-            }
-
-            if !folders.isEmpty || conversation.folderId != nil {
-                Divider()
-                Menu("Move to Folder") {
-                    if conversation.folderId != nil {
-                        Button("Remove from Folder") {
-                            ConversationStore.shared.moveConversation(conversation.id, toFolder: nil)
-                        }
-                        Divider()
-                    }
-                    ForEach(folders.filter { $0.id != conversation.folderId }) { folder in
-                        Button(folder.name) {
-                            ConversationStore.shared.moveConversation(conversation.id, toFolder: folder.id)
-                        }
-                    }
-                }
-            }
-
-            Divider()
-            Button("Delete", role: .destructive) { showDeleteConfirm = true }
-        }
-        .confirmationDialog("Delete this conversation?", isPresented: $showDeleteConfirm) {
-            // No .destructive role so macOS makes this the default button (Enter triggers it)
-            Button("Delete") { onDelete() }
-            Button("Cancel", role: .cancel) {}
-        }
-    }
-}
-
-@MainActor
-private struct FolderSection: View {
-    let folder: Folder
-    let conversations: [Conversation]
-    let allFolders: [Folder]
-    let activeConvId: UUID?
-    var onSelect: (Conversation) -> Void
-    var onDelete: (UUID) -> Void
-
-    @State private var isExpanded = true
-    @State private var isRenaming = false
-    @State private var renameDraft = ""
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 5) {
-                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-                    .frame(width: 10)
-                Image(systemName: "folder.fill")
-                    .font(.caption2)
-                    .foregroundStyle(Color.accentColor.opacity(0.7))
-                Text(folder.name)
-                    .font(.caption2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("\(conversations.count)")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 10)
-            .padding(.bottom, 4)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.12)) { isExpanded.toggle() }
-            }
-            .contextMenu {
-                Button("Rename Folder") { renameDraft = folder.name; isRenaming = true }
-                if !conversations.isEmpty {
-                    Divider()
-                    Menu("Export Folder") {
-                        Button("Export as Markdown") {
-                            exportFolder(folder, conversations: conversations, format: .markdown)
-                        }
-                        Button("Export as JSON") {
-                            exportFolder(folder, conversations: conversations, format: .json)
-                        }
-                    }
-                }
-                Divider()
-                Button("Delete Folder", role: .destructive) {
-                    ConversationStore.shared.deleteFolder(folder.id)
-                }
-            }
-
-            if isExpanded {
-                ForEach(conversations) { conv in
-                    ConversationRow(
-                        conversation: conv,
-                        isSelected: activeConvId == conv.id,
-                        folders: allFolders,
-                        onDelete: { onDelete(conv.id) },
-                        onSelect: { onSelect(conv) }
-                    )
-                    .padding(.horizontal, 6)
-                    .padding(.leading, 6)
-                }
-            }
-        }
-        .alert("Rename Folder", isPresented: $isRenaming) {
-            TextField("Folder name", text: $renameDraft)
-            Button("Rename") {
-                if !renameDraft.isEmpty {
-                    ConversationStore.shared.renameFolder(folder.id, to: renameDraft)
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
-    }
-}
-
 @MainActor
 private struct SidebarView: View {
     @Bindable var vm: CommandPanelViewModel
@@ -344,179 +176,206 @@ private struct SidebarView: View {
     var onDelete: (UUID) -> Void
 
     @FocusState private var searchFocused: Bool
+    @State private var selectedIDs: Set<UUID> = []
+    @State private var collapsedFolders: Set<UUID> = []
+    @State private var pendingDeleteIDs: Set<UUID> = []
+    @State private var showDeleteConfirmation = false
     @State private var showNewFolderAlert = false
     @State private var newFolderName = ""
+    @State private var renameFolder: Folder?
+    @State private var renameDraft = ""
+
+    private var filteredConversations: [Conversation] {
+        let query = vm.sidebarSearch.trimmingCharacters(in: .whitespacesAndNewlines)
+        return query.isEmpty ? conversations : conversations.filter { $0.title.localizedCaseInsensitiveContains(query) }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Search bar
             HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary).font(.caption)
                 TextField("Search", text: $vm.sidebarSearch)
                     .font(.callout)
                     .textFieldStyle(.plain)
                     .focused($searchFocused)
                 if !vm.sidebarSearch.isEmpty {
-                    Button(action: { vm.sidebarSearch = "" }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                            .font(.caption)
+                    Button { vm.sidebarSearch = "" } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(10)
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
-            .padding(.horizontal, 10)
-            .padding(.top, 10)
-            .padding(.bottom, 6)
+            .padding(10)
 
-            // Conversation list
-            if conversations.isEmpty && folders.isEmpty {
-                emptyState
-            } else if !vm.sidebarSearch.isEmpty {
-                searchResults
-            } else {
-                mainList
+            List(selection: $selectedIDs) {
+                if !vm.sidebarSearch.isEmpty {
+                    ForEach(filteredConversations) { conversation in row(conversation) }
+                } else {
+                    ForEach(folders) { folder in
+                        DisclosureGroup(isExpanded: Binding(
+                            get: { !collapsedFolders.contains(folder.id) },
+                            set: { if $0 { collapsedFolders.remove(folder.id) } else { collapsedFolders.insert(folder.id) } }
+                        )) {
+                            ForEach(conversations.filter { $0.folderId == folder.id }) { conversation in row(conversation) }
+                        } label: {
+                            Label(folder.name, systemImage: "folder")
+                                .contextMenu { folderActions(folder) }
+                        }
+                    }
+                    ForEach(groupConversations(conversations.filter { $0.folderId == nil }), id: \.0.rawValue) { group, items in
+                        Section(group.rawValue) {
+                            ForEach(items) { conversation in row(conversation) }
+                        }
+                    }
+                }
+            }
+            .listStyle(.sidebar)
+            .overlay {
+                if filteredConversations.isEmpty && (folders.isEmpty || !vm.sidebarSearch.isEmpty) {
+                    Text(vm.sidebarSearch.isEmpty ? "No conversations yet" : "No results")
+                        .font(.caption).foregroundStyle(.secondary).allowsHitTesting(false)
+                }
+            }
+            .onKeyPress("a", phases: .down) { press in
+                guard press.modifiers == .command else { return .ignored }
+                selectedIDs = Set(filteredConversations.map(\.id))
+                return .handled
+            }
+            .onDeleteCommand { requestDelete(selectedIDs) }
+            .contextMenu(forSelectionType: UUID.self) { ids in
+                if !ids.isEmpty {
+                    Menu("Export") {
+                        Button("Export as Markdown") { exportSelection(ids, format: .markdown) }
+                        Button("Export as JSON") { exportSelection(ids, format: .json) }
+                    }
+                    moveMenu(ids)
+                    Divider()
+                    Button(ids.count == 1 ? "Delete Conversation" : "Delete \(ids.count) Conversations", role: .destructive) {
+                        requestDelete(ids)
+                    }
+                }
             }
 
-            Divider()
-
-            // Bottom toolbar
-            HStack(spacing: 0) {
-                Button(action: onNew) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "plus").font(.caption.bold())
-                        Text("New").font(.callout)
-                        Spacer()
-                        Text("⌘N").font(.caption2).foregroundStyle(.tertiary)
+            if !selectedIDs.isEmpty {
+                HStack {
+                    Text("\(selectedIDs.count) selected").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    moveMenu(selectedIDs)
+                        .labelStyle(.iconOnly)
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
+                    Button(role: .destructive) { requestDelete(selectedIDs) } label: {
+                        Image(systemName: "trash")
                     }
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .contentShape(Rectangle())
+                    .buttonStyle(.borderless)
+                    .help("Delete selected conversations")
                 }
-                .buttonStyle(.plain)
-
-                Button {
-                    newFolderName = ""
-                    showNewFolderAlert = true
-                } label: {
+                .padding(.horizontal, 12).padding(.vertical, 8)
+            }
+            Divider()
+            HStack {
+                Button(action: onNew) { Label("New", systemImage: "plus") }
+                    .buttonStyle(.plain)
+                Spacer()
+                Button { newFolderName = ""; showNewFolderAlert = true } label: {
                     Image(systemName: "folder.badge.plus")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 32, height: 32)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .help("New Folder")
-                .padding(.trailing, 4)
+                .buttonStyle(.plain).help("New Folder")
+            }
+            .padding(12)
+        }
+        .onAppear { if let id = vm.activeConversation?.id { selectedIDs = [id] } }
+        .onChange(of: selectedIDs) { _, ids in
+            if ids.count == 1, let id = ids.first, vm.activeConversation?.id != id,
+               let conversation = conversations.first(where: { $0.id == id }) {
+                onSelect(conversation)
             }
         }
-        .onChange(of: vm.focusSidebarSearch) { _, newVal in
-            if newVal { searchFocused = true; vm.focusSidebarSearch = false }
+        .onChange(of: vm.activeConversation?.id) { _, id in
+            if let id, conversations.contains(where: { $0.id == id }) {
+                if !selectedIDs.contains(id) { selectedIDs = [id] }
+            } else { selectedIDs = [] }
+        }
+        .onChange(of: conversations.map(\.id)) { _, ids in selectedIDs.formIntersection(ids) }
+        .onChange(of: vm.sidebarSearch) { _, _ in selectedIDs.formIntersection(filteredConversations.map(\.id)) }
+        .onChange(of: vm.focusSidebarSearch) { _, value in
+            if value { searchFocused = true; vm.focusSidebarSearch = false }
+        }
+        .confirmationDialog("Delete \(pendingDeleteIDs.count) conversation(s)?", isPresented: $showDeleteConfirmation) {
+            Button("Delete", role: .destructive) {
+                let ids = pendingDeleteIDs
+                pendingDeleteIDs = []
+                selectedIDs.subtract(ids)
+                for id in ids { onDelete(id) }
+            }
+            Button("Cancel", role: .cancel) { pendingDeleteIDs = [] }
+        } message: {
+            Text("This permanently removes the selected conversations from this Mac.")
         }
         .alert("New Folder", isPresented: $showNewFolderAlert) {
             TextField("Folder name", text: $newFolderName)
             Button("Create") {
-                if !newFolderName.isEmpty {
-                    ConversationStore.shared.createFolder(name: newFolderName)
-                }
+                let name = newFolderName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty { ConversationStore.shared.createFolder(name: name) }
             }
             Button("Cancel", role: .cancel) {}
         }
-    }
-
-    // MARK: - List sections
-
-    private var emptyState: some View {
-        VStack {
-            Spacer()
-            Text("No conversations yet")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding()
-            Spacer()
-        }
-    }
-
-    private var searchResults: some View {
-        let q = vm.sidebarSearch.lowercased()
-        let results = conversations.filter { $0.title.lowercased().contains(q) }
-        return Group {
-            if results.isEmpty {
-                VStack { Spacer(); Text("No results").font(.caption).foregroundStyle(.secondary); Spacer() }
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(results) { conv in
-                            ConversationRow(
-                                conversation: conv,
-                                isSelected: vm.activeConversation?.id == conv.id,
-                                folders: folders,
-                                onDelete: { onDelete(conv.id) },
-                                onSelect: { onSelect(conv) }
-                            )
-                            .padding(.horizontal, 6)
-                        }
-                    }
-                    .padding(.bottom, 8)
-                }
+        .alert("Rename Folder", isPresented: Binding(get: { renameFolder != nil }, set: { if !$0 { renameFolder = nil } })) {
+            TextField("Folder name", text: $renameDraft)
+            Button("Rename") {
+                let name = renameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let folder = renameFolder, !name.isEmpty { ConversationStore.shared.renameFolder(folder.id, to: name) }
+                renameFolder = nil
             }
+            Button("Cancel", role: .cancel) { renameFolder = nil }
         }
     }
 
-    private var mainList: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                // Folders
-                if !folders.isEmpty {
-                    ForEach(folders) { folder in
-                        FolderSection(
-                            folder: folder,
-                            conversations: ConversationStore.shared.conversations(inFolder: folder.id),
-                            allFolders: folders,
-                            activeConvId: vm.activeConversation?.id,
-                            onSelect: onSelect,
-                            onDelete: onDelete
-                        )
-                    }
-
-                    if !ConversationStore.shared.unfolderedConversations.isEmpty {
-                        Divider()
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
-                    }
-                }
-
-                // Unfoldered conversations grouped by date
-                ForEach(groupConversations(ConversationStore.shared.unfolderedConversations), id: \.0.rawValue) { group, items in
-                    Text(group.rawValue)
-                        .font(.caption2)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 12)
-                        .padding(.top, 10)
-                        .padding(.bottom, 2)
-
-                    ForEach(items) { conv in
-                        ConversationRow(
-                            conversation: conv,
-                            isSelected: vm.activeConversation?.id == conv.id,
-                            folders: folders,
-                            onDelete: { onDelete(conv.id) },
-                            onSelect: { onSelect(conv) }
-                        )
-                        .padding(.horizontal, 6)
-                    }
-                }
-            }
-            .padding(.bottom, 8)
+    private func row(_ conversation: Conversation) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(conversation.title.isEmpty ? "New conversation" : conversation.title).font(.callout).lineLimit(1)
+            Text(relativeTime(conversation.updatedAt)).font(.caption2).foregroundStyle(.secondary)
         }
+        .padding(.vertical, 3)
+        .tag(conversation.id)
+        .accessibilityLabel(conversation.title.isEmpty ? "New conversation" : conversation.title)
+    }
+
+    private func requestDelete(_ ids: Set<UUID>) {
+        pendingDeleteIDs = ids.intersection(conversations.map(\.id))
+        showDeleteConfirmation = !pendingDeleteIDs.isEmpty
+    }
+
+    private func moveMenu(_ ids: Set<UUID>) -> some View {
+        Menu {
+            Button("Remove from Folder") { move(ids, to: nil) }
+            ForEach(folders) { folder in Button(folder.name) { move(ids, to: folder.id) } }
+        } label: {
+            Label("Move to Folder", systemImage: "folder")
+        }
+    }
+
+    private func move(_ ids: Set<UUID>, to folder: UUID?) {
+        for id in ids { ConversationStore.shared.moveConversation(id, toFolder: folder) }
+    }
+
+    private func exportSelection(_ ids: Set<UUID>, format: ExportFormat) {
+        let items = conversations.filter { ids.contains($0.id) }
+        if items.count == 1, let item = items.first { exportConversation(item, format: format) }
+        else if !items.isEmpty { exportFolder(Folder(name: "Selected conversations"), conversations: items, format: format) }
+    }
+
+    @ViewBuilder private func folderActions(_ folder: Folder) -> some View {
+        Button("Rename Folder") { renameDraft = folder.name; renameFolder = folder }
+        Menu("Export Folder") {
+            Button("Export as Markdown") { exportFolder(folder, conversations: conversations.filter { $0.folderId == folder.id }, format: .markdown) }
+            Button("Export as JSON") { exportFolder(folder, conversations: conversations.filter { $0.folderId == folder.id }, format: .json) }
+        }
+        Divider()
+        Button("Delete Folder", role: .destructive) { ConversationStore.shared.deleteFolder(folder.id) }
     }
 }
 
@@ -1001,6 +860,7 @@ struct CommandPanelView: View {
                 onSelect: onSelectConversation,
                 onNew: onNewConversation,
                 onDelete: { id in
+                    if vm.activeConversation?.id == id { onCancel() }
                     ConversationStore.shared.delete(id)
                     if vm.activeConversation?.id == id {
                         vm.startNewConversation(profileId: ProfilesStore.shared.activeProfile.id)

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Combine
 
 @MainActor
 final class AutoAnswerProgress {
@@ -9,6 +10,7 @@ final class AutoAnswerProgress {
     private var timer: Timer?
     private var activityID: UUID?
     private var browserPID: pid_t?
+    private var appearanceSubscription: AnyCancellable?
 
     func begin() -> UUID {
         dismiss()
@@ -29,6 +31,13 @@ final class AutoAnswerProgress {
         panel.isReleasedWhenClosed = false
         panel.contentView = NSHostingView(rootView: AutoAnswerProgressView())
         self.panel = panel
+        appearanceSubscription = PreferencesStore.shared.$panelAppearanceMode.sink { [weak panel] mode in
+            switch mode {
+            case .system: panel?.appearance = nil
+            case .light: panel?.appearance = NSAppearance(named: .aqua)
+            case .dark: panel?.appearance = NSAppearance(named: .darkAqua)
+            }
+        }
         updatePosition()
         timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.updatePosition() }
@@ -42,6 +51,7 @@ final class AutoAnswerProgress {
     }
 
     func dismiss() {
+        appearanceSubscription = nil
         timer?.invalidate()
         timer = nil
         panel?.orderOut(nil)
