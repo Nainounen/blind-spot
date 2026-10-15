@@ -9,7 +9,7 @@
             <sparkle:version>2.4.7</sparkle:version>
             <sparkle:shortVersionString>2.4.7</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/Nainounen/blind-spot/releases/download/v2.4.7/BlindSpot-2.4.7.dmg" length="5479739" type="application/octet-stream" sparkle:edSignature="v5ywKu20a4u0cTGNTQcBctzx7rSqWRmOVCYZbh104uwmuIukYhrN52wO1VsYXYhEN+CByGhH909wEHYUaIxYAw=="/>
+            <enclosure url="https://github.com/Nainounen/blind-spot/releases/download/v2.4.7/BlindSpot-2.4.7.dmg?download=1" length="5479739" type="application/octet-stream" sparkle:edSignature="v5ywKu20a4u0cTGNTQcBctzx7rSqWRmOVCYZbh104uwmuIukYhrN52wO1VsYXYhEN+CByGhH909wEHYUaIxYAw=="/>
         </item>
     </channel>
 </rss>
