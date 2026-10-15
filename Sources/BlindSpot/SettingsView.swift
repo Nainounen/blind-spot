@@ -5,9 +5,9 @@ import AppKit
 
 private enum SettingsTab: String, CaseIterable {
     case profiles      = "Profiles"
-    case apiKeys       = "API Keys"
-    case preferences   = "Preferences"
-    case hotkeys       = "Hotkeys"
+    case apiKeys       = "Providers"
+    case preferences   = "General"
+    case hotkeys       = "Keyboard Shortcuts"
     case accessibility = "Permissions"
     case about         = "About"
 
@@ -21,6 +21,40 @@ private enum SettingsTab: String, CaseIterable {
         case .about:         return "info.circle"
         }
     }
+
+    var color: Color {
+        switch self {
+        case .profiles: return .purple
+        case .apiKeys: return .blue
+        case .preferences: return .gray
+        case .hotkeys: return .orange
+        case .accessibility: return .green
+        case .about: return .indigo
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .profiles: return "Choose how BlindSpot answers. Changes save automatically."
+        case .apiKeys: return "Manage API keys for your AI providers."
+        case .preferences: return "Make BlindSpot feel at home on your Mac."
+        case .hotkeys: return "Your quickest way to an answer, from any app."
+        case .accessibility: return "Manage the access BlindSpot needs on your Mac."
+        case .about: return "App version and credits."
+        }
+    }
+
+    var searchTerms: String {
+        switch self {
+        case .profiles: return "model prompt tokens temperature thinking reasoning vision context files"
+        case .apiKeys: return Provider.allCases.map(\.displayName).joined(separator: " ") + " API keys connection"
+        case .preferences: return "panel size appearance light dark position clipboard copy screenshot capture padding"
+        case .hotkeys: return "trigger shortcut keyboard auto answer panic quit"
+        case .accessibility: return "permissions accessibility screen recording privacy"
+        case .about: return "version updates"
+        }
+    }
+
 }
 
 // MARK: - Window controller
@@ -38,7 +72,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
         if window == nil {
             let w = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 820, height: 620),
+                contentRect: NSRect(x: 0, y: 0, width: 1040, height: 760),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
@@ -46,13 +80,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             w.title = "BlindSpot Settings"
             w.titleVisibility = .hidden
             w.titlebarAppearsTransparent = true
-            w.minSize = NSSize(width: 720, height: 480)
+            w.minSize = NSSize(width: 900, height: 600)
             w.isReleasedWhenClosed = false
             w.appearance = NSApp.effectiveAppearance
             let hostingView = NSHostingView(rootView: SettingsView())
-            let glassView = NSGlassEffectView()
-            glassView.contentView = hostingView
-            w.contentView = glassView
+            w.contentView = hostingView
             w.center()
             w.delegate = self
             window = w
@@ -74,213 +106,207 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 @MainActor
 struct SettingsView: View {
     @ObservedObject private var prefs = PreferencesStore.shared
-    @State private var selectedTab: SettingsTab = .profiles
+    @State private var selectedTab: SettingsTab? = .preferences
+    @State private var searchText = ""
     @State private var editingKeyFor: Provider? = nil
     @State private var draftKey: String = ""
     @State private var showKey: Bool = false
     @State private var axGranted: Bool = AXIsProcessTrusted()
     @State private var screenRecordingGranted: Bool = CGPreflightScreenCaptureAccess()
 
+    private var currentTab: SettingsTab { selectedTab ?? .preferences }
+
+    private func matchesSearch(_ tab: SettingsTab) -> Bool {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return query.isEmpty || (tab.rawValue + " " + tab.searchTerms).localizedCaseInsensitiveContains(query)
+    }
+
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-            Divider().opacity(0.4)
-            contentPane
-        }
-        .frame(minWidth: 720, maxWidth: .infinity, minHeight: 480, maxHeight: .infinity)
-    }
-
-    // MARK: - Sidebar
-
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Traffic-light clearance
-            Spacer().frame(height: 44)
-
-            // App identity
-            HStack(spacing: 7) {
-                Image(systemName: "sparkle")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.purple)
-                Text("BlindSpot")
-                    .font(.callout.weight(.semibold))
+        NavigationSplitView {
+            List(selection: $selectedTab) {
+                navigationSection("BlindSpot", tabs: [.preferences, .profiles, .apiKeys])
+                navigationSection("App", tabs: [.hotkeys, .accessibility, .about])
             }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 14)
-
-            // Nav items
-            VStack(spacing: 1) {
-                ForEach(SettingsTab.allCases, id: \.self) { tab in
-                    sidebarButton(tab)
+            .listStyle(.sidebar)
+            .searchable(text: $searchText, placement: .sidebar, prompt: "Search settings")
+            .overlay {
+                if !SettingsTab.allCases.contains(where: matchesSearch) {
+                    ContentUnavailableView.search(text: searchText)
                 }
             }
+            .navigationSplitViewColumnWidth(min: 210, ideal: 230, max: 260)
+            .navigationTitle("BlindSpot")
+        } detail: {
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(currentTab.rawValue).font(.largeTitle.bold())
+                    Text(currentTab.subtitle).font(.callout).foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 28)
+                .padding(.top, 20)
+                .padding(.bottom, 24)
 
-            Spacer()
+                contentPane
+            }
+            .background(Color(nsColor: .windowBackgroundColor))
+            .navigationTitle("BlindSpot Settings")
         }
-        .padding(.horizontal, 8)
-        .padding(.bottom, 8)
-        .frame(width: 176)
-        .background(Color.primary.opacity(0.03))
-    }
-
-    private func sidebarButton(_ tab: SettingsTab) -> some View {
-        Button { selectedTab = tab } label: {
-            HStack(spacing: 8) {
-                Image(systemName: tab.icon)
-                    .font(.system(size: 12))
-                    .frame(width: 16)
-                    .foregroundStyle(selectedTab == tab ? Color.accentColor : .secondary)
-                Text(tab.rawValue)
-                    .font(.callout)
-                Spacer()
-                if tab == .accessibility && !axGranted {
-                    Circle().fill(.orange).frame(width: 5, height: 5)
+        .navigationSplitViewStyle(.balanced)
+        .frame(minWidth: 900, minHeight: 600)
+        .task {
+            // Keep permission badges current for this window's lifetime.
+            while !Task.isCancelled {
+                axGranted = AXIsProcessTrusted()
+                screenRecordingGranted = CGPreflightScreenCaptureAccess()
+                do {
+                    try await Task.sleep(for: .seconds(1))
+                } catch {
+                    return
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(
-                selectedTab == tab ? Color.accentColor.opacity(0.12) : Color.clear,
-                in: RoundedRectangle(cornerRadius: 6)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 6))
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(selectedTab == tab ? .primary : .secondary)
     }
 
-    // MARK: - Content pane
+    private func navigationSection(_ title: String, tabs: [SettingsTab]) -> some View {
+        Section(title) {
+            ForEach(tabs.filter(matchesSearch), id: \.self) { tab in
+                HStack(spacing: 10) {
+                    Image(systemName: tab.icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(tab.color.gradient, in: RoundedRectangle(cornerRadius: 7))
+                    Text(tab.rawValue)
+                    Spacer(minLength: 0)
+                    if tab == .accessibility && !axGranted {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .foregroundStyle(.orange)
+                            .accessibilityLabel("Accessibility permission needed")
+                    }
+                }
+                .padding(.vertical, 4)
+                .tag(tab)
+            }
+        }
+    }
 
     @ViewBuilder
     private var contentPane: some View {
-        if selectedTab == .profiles {
-            // Profiles tab needs to fill the full height — no outer scroll
-            VStack(spacing: 0) {
-                Spacer().frame(height: 28)
-                ProfilesTabView()
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        if currentTab == .profiles {
+            ProfilesTabView()
+        } else if currentTab == .preferences {
+            globalSettingsSection
         } else {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Spacer().frame(height: 28)
-                    switch selectedTab {
-                    case .profiles:      EmptyView()
-                    case .apiKeys:       allKeysSection
-                    case .preferences:   globalSettingsSection
-                    case .hotkeys:       hotkeysSection
+                VStack(alignment: .leading, spacing: 24) {
+                    switch currentTab {
+                    case .profiles, .preferences: EmptyView()
+                    case .apiKeys: allKeysSection
+                    case .hotkeys: hotkeysSection
                     case .accessibility: accessibilitySection
-                    case .about:         versionSection
+                    case .about: versionSection
                     }
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .frame(maxWidth: 800, alignment: .leading)
+                .padding(.horizontal, 28)
+                .padding(.bottom, 28)
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
     // MARK: - API Keys tab
 
     private var allKeysSection: some View {
-        SettingsSection(title: "API Keys — All Providers") {
-            VStack(spacing: 0) {
-                let keyProviders = Provider.allCases.filter { $0.requiresKey }
-                ForEach(Array(keyProviders.enumerated()), id: \.element.rawValue) { idx, provider in
-                    HStack(spacing: 10) {
-                        ProviderIcon(provider: provider, size: 18)
-                            .foregroundStyle(prefs.hasKey(for: provider) ? Color.primary : Color.secondary.opacity(0.5))
+        VStack(alignment: .leading, spacing: 24) {
+            SettingsSection(title: "Cloud providers") {
+                VStack(spacing: 0) {
+                    let keyProviders = Provider.allCases.filter { $0.requiresKey }
+                    ForEach(Array(keyProviders.enumerated()), id: \.element.rawValue) { idx, provider in
+                        HStack(spacing: 10) {
+                            ProviderIcon(provider: provider, size: 24)
+                                .foregroundStyle(prefs.hasKey(for: provider) ? Color.primary : Color.secondary)
 
-                        Text(provider.displayName)
-                            .frame(width: 90, alignment: .leading)
-                            .font(.callout)
+                            Text(provider.displayName)
+                                .frame(width: 90, alignment: .leading)
+                                .font(.callout)
 
-                        if provider == prefs.providerChoice {
-                            Text("active")
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(.purple)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.purple.opacity(0.12), in: Capsule())
-                        }
-
-                        Spacer()
-
-                        if prefs.hasKey(for: provider) {
-                            Text("Key saved")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Button("Change") {
-                                draftKey = ""
-                                showKey = false
-                                editingKeyFor = provider
+                            if provider == prefs.providerChoice {
+                                Text("Active")
+                                    .font(.caption2.weight(.medium))
+                                    .foregroundStyle(.purple)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.purple.opacity(0.12), in: Capsule())
                             }
-                            .buttonStyle(.borderless)
-                            .font(.caption)
-                            Button("Remove") { prefs.clearKey(for: provider) }
+
+                            Spacer()
+
+                            if prefs.hasKey(for: provider) {
+                                Label("Key saved", systemImage: "checkmark.circle")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Button("Change") {
+                                    draftKey = ""
+                                    showKey = false
+                                    editingKeyFor = provider
+                                }
                                 .buttonStyle(.borderless)
                                 .font(.caption)
-                                .foregroundStyle(.red)
-                        } else {
-                            if let url = provider.signupURL {
-                                Link("Get key ↗", destination: URL(string: url)!)
+                                Button("Remove") { prefs.clearKey(for: provider) }
+                                    .buttonStyle(.borderless)
                                     .font(.caption)
-                                    .foregroundStyle(Color.accentColor)
-                                    .underline()
+                                    .foregroundStyle(.red)
+                            } else {
+                                if let url = provider.signupURL {
+                                    Link("Get key ↗", destination: URL(string: url)!)
+                                        .font(.caption)
+                                        .foregroundStyle(Color.accentColor)
+                                        .underline()
+                                }
+                                Button("Add") {
+                                    draftKey = ""
+                                    showKey = false
+                                    editingKeyFor = provider
+                                }
+                                .buttonStyle(.borderless)
+                                .font(.caption)
                             }
-                            Button("Add") {
-                                draftKey = ""
-                                showKey = false
-                                editingKeyFor = provider
-                            }
-                            .buttonStyle(.borderless)
-                            .font(.caption)
+                        }
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 12)
+
+                        if idx < keyProviders.count - 1 {
+                            Divider().padding(.leading, 28)
                         }
                     }
-                    .padding(.vertical, 7)
-                    .padding(.horizontal, 10)
-
-                    if idx < keyProviders.count - 1 {
-                        Divider().padding(.leading, 28)
-                    }
                 }
 
-                Divider().padding(.leading, 28)
-                HStack(spacing: 10) {
-                    ProviderIcon(provider: .ollama, size: 18)
-                        .foregroundStyle(Color.primary)
-                    Text("Ollama")
-                        .frame(width: 90, alignment: .leading)
-                        .font(.callout)
-                    if prefs.providerChoice == .ollama {
-                        Text("active")
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.purple)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.purple.opacity(0.12), in: Capsule())
+                if editingKeyFor != nil {
+                    Divider()
+                    if let provider = editingKeyFor {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Edit key for \(provider.displayName)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            keyEditorView(for: provider)
+                        }
                     }
-                    Spacer()
-                    Text("Local — no key needed")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 7)
-                .padding(.horizontal, 10)
             }
-            .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
-
-            if editingKeyFor != nil {
-                Divider()
-                if let provider = editingKeyFor {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Edit key for \(provider.displayName)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        keyEditorView(for: provider)
+            SettingsSection(title: "On your Mac") {
+                ForEach(Provider.allCases.filter { !$0.requiresKey }, id: \.rawValue) { provider in
+                    HStack(spacing: 12) {
+                        ProviderIcon(provider: provider, size: 22)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(provider.displayName).font(.body.weight(.medium))
+                            Text("Configure the model and server in Profiles.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text("No API key needed").font(.caption).foregroundStyle(.secondary)
                     }
+                    .padding(12)
                 }
             }
         }
@@ -289,105 +315,55 @@ struct SettingsView: View {
     // MARK: - Settings tab
 
     private var globalSettingsSection: some View {
-        SettingsSection(title: "Global Settings") {
-            VStack(alignment: .leading, spacing: 12) {
-                // Max tokens and system prompt moved to Profiles tab (per-profile).
-                // These global settings are now managed in each AIProfile.
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Panel Size")
-                        .font(.callout)
-                    Picker("Panel Size", selection: Binding(
-                        get: { prefs.panelSizePreset },
-                        set: {
-                            prefs.setPanelSizePreset($0)
-                            CommandPanelController.shared.resizePanel(animated: true)
-                        }
-                    )) {
-                        ForEach(PanelSizePreset.allCases) { preset in
-                            Text(preset.displayName).tag(preset)
-                        }
+        Form {
+            Section("Response panel") {
+                Picker("Panel size", selection: Binding(
+                    get: { prefs.panelSizePreset },
+                    set: {
+                        prefs.setPanelSizePreset($0)
+                        CommandPanelController.shared.resizePanel(animated: true)
                     }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(maxWidth: 280)
-                    Text("XS hides the sidebar and shows a compact bar. Takes effect immediately.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Panel Appearance")
-                        .font(.callout)
-                    Picker("Panel Appearance", selection: Binding(
-                        get: { prefs.panelAppearanceMode },
-                        set: {
-                            prefs.setPanelAppearanceMode($0)
-                            CommandPanelController.shared.applyAppearance()
-                        }
-                    )) {
-                        ForEach(PanelAppearanceMode.allCases) { mode in
-                            Text(mode.displayName).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(maxWidth: 220)
-                    Text("Light forces the panel bright (white liquid glass) regardless of system theme.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Toggle(isOn: Binding(
-                    get: { prefs.savePanelPosition },
-                    set: { prefs.setSavePanelPosition($0) }
                 )) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Remember panel position")
-                            .font(.callout)
-                        Text("When on, the panel reopens at its last dragged position instead of centered on screen.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    ForEach(PanelSizePreset.allCases) { preset in
+                        Text(preset.displayName).tag(preset)
                     }
                 }
+                .pickerStyle(.segmented)
+                Text("XS shows a compact bar without a sidebar. Changes apply immediately.")
+                    .font(.caption).foregroundStyle(.secondary)
 
-                Toggle(isOn: Binding(
-                    get: { prefs.closeOnFocusLoss },
-                    set: { prefs.setCloseOnFocusLoss($0) }
+                Picker("Appearance", selection: Binding(
+                    get: { prefs.panelAppearanceMode },
+                    set: {
+                        prefs.setPanelAppearanceMode($0)
+                        CommandPanelController.shared.applyAppearance()
+                    }
                 )) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Close panel when clicking outside")
-                            .font(.callout)
-                        Text("Raycast-style: the command panel hides automatically when you switch to another app. Off by default.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    ForEach(PanelAppearanceMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
                     }
                 }
+                .pickerStyle(.segmented)
 
-                Toggle(isOn: Binding(
-                    get: { prefs.autoCopyLastResponse },
-                    set: { prefs.setAutoCopyLastResponse($0) }
-                )) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Auto-copy last response")
-                            .font(.callout)
-                        Text("Automatically copies the AI response to your clipboard as soon as streaming completes.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                Toggle("Remember panel position", isOn: Binding(
+                    get: { prefs.savePanelPosition }, set: { prefs.setSavePanelPosition($0) }
+                ))
+                Toggle("Close panel when clicking outside", isOn: Binding(
+                    get: { prefs.closeOnFocusLoss }, set: { prefs.setCloseOnFocusLoss($0) }
+                ))
+            }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("System Prompt & Output Tokens")
-                        .font(.callout)
-                    Text("These are now configured per-profile in the Profiles tab.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.top, 4)
+            Section {
+                Toggle("Copy completed responses to clipboard", isOn: Binding(
+                    get: { prefs.autoCopyLastResponse }, set: { prefs.setAutoCopyLastResponse($0) }
+                ))
+            } header: {
+                Text("Responses")
+            } footer: {
+                Text("System prompts and output limits are configured for each profile.")
+            }
 
-                Divider()
-
+            Section("Screenshot capture") {
                 // Screenshot capture size
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -406,6 +382,7 @@ struct SettingsView: View {
                             ),
                             in: 80...800, step: 20
                         )
+                        .accessibilityLabel("Screenshot padding")
                         Text("How far beyond the selected text to expand the capture area on each side.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -430,6 +407,7 @@ struct SettingsView: View {
                                     ),
                                     in: 100...2000, step: 40
                                 )
+                                .accessibilityLabel("Minimum capture width")
                             }
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Height").font(.caption2).foregroundStyle(.tertiary)
@@ -440,6 +418,7 @@ struct SettingsView: View {
                                     ),
                                     in: 100...2000, step: 40
                                 )
+                                .accessibilityLabel("Minimum capture height")
                             }
                         }
                         Text("Ensures a minimum screenshot size even when selecting a small region.")
@@ -447,11 +426,13 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    // Live preview — show what the capture dimensions look like
+                    // Live preview. show what the capture dimensions look like
                     screenshotPreview
                 }
             }
         }
+        .formStyle(.grouped)
+        .toggleStyle(.switch)
     }
 
     // MARK: - Screenshot Preview
@@ -514,12 +495,12 @@ struct SettingsView: View {
                     .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
                     .frame(width: mapSW, height: mapSH)
 
-                // Capture area (blue, centred — appears larger around the selection)
+                // Capture area (blue, centred. appears larger around the selection)
                 RoundedRectangle(cornerRadius: 2)
                     .fill(Color.accentColor.opacity(0.35))
                     .frame(width: mapCapW, height: mapCapH)
 
-                // Selected text (dark outline, centred — sits on top of the capture area)
+                // Selected text (dark outline, centred. sits on top of the capture area)
                 RoundedRectangle(cornerRadius: 1)
                     .strokeBorder(Color.primary.opacity(0.6), lineWidth: 1)
                     .background(Color.primary.opacity(0.25))
@@ -681,18 +662,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .onAppear {
-            screenRecordingGranted = CGPreflightScreenCaptureAccess()
-            Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { t in
-                let axOK = AXIsProcessTrusted()
-                let srOK = CGPreflightScreenCaptureAccess()
-                if axOK && srOK { t.invalidate() }
-                Task { @MainActor in
-                    axGranted = axOK
-                    screenRecordingGranted = srOK
-                }
-            }
-        }
+
     }
 
     private func permissionRow(
@@ -868,18 +838,13 @@ private struct ProfileRow: View {
             Spacer()
             if isActive {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(.secondary)
                     .font(.caption)
+                    .accessibilityLabel("Active profile")
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 4)
         .padding(.vertical, 7)
-        .background(
-            isSelected
-                ? Color.accentColor.opacity(0.12)
-                : Color.clear,
-            in: RoundedRectangle(cornerRadius: 7)
-        )
         .contentShape(Rectangle())
     }
 }
@@ -899,32 +864,31 @@ private struct ProfilesTabView: View {
         HStack(alignment: .top, spacing: 0) {
             // Profile list
             VStack(spacing: 0) {
-                ScrollView {
-                    LazyVStack(spacing: 2) {
-                        ForEach(profiles) { profile in
-                            ProfileRow(
-                                profile: profile,
-                                isSelected: profile.id == selectedId,
-                                isActive: profile.id == ProfilesStore.shared.activeProfileId
-                            )
-                            .onTapGesture { selectedId = profile.id }
-                        }
+                List(selection: $selectedId) {
+                    ForEach(profiles) { profile in
+                        ProfileRow(
+                            profile: profile,
+                            isSelected: profile.id == selectedId,
+                            isActive: profile.id == ProfilesStore.shared.activeProfileId
+                        )
+                        .tag(profile.id)
                     }
-                    .padding(6)
                 }
+                .listStyle(.inset)
+                .scrollContentBackground(.hidden)
 
                 Divider().opacity(0.4)
 
                 HStack(spacing: 2) {
                     Button(action: addProfile) {
-                        Image(systemName: "plus")
+                        Label("Add profile", systemImage: "plus").labelStyle(.iconOnly)
                             .frame(width: 26, height: 26)
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
 
                     Button(action: duplicateSelected) {
-                        Image(systemName: "doc.on.doc")
+                        Label("Duplicate profile", systemImage: "doc.on.doc").labelStyle(.iconOnly)
                             .frame(width: 26, height: 26)
                     }
                     .buttonStyle(.plain)
@@ -934,7 +898,7 @@ private struct ProfilesTabView: View {
                     Spacer()
 
                     Button(action: deleteSelected) {
-                        Image(systemName: "trash")
+                        Label("Delete profile", systemImage: "trash").labelStyle(.iconOnly)
                             .frame(width: 26, height: 26)
                     }
                     .buttonStyle(.plain)
@@ -942,9 +906,9 @@ private struct ProfilesTabView: View {
                     .disabled(selectedId == nil || profiles.count <= 1)
                 }
                 .padding(.horizontal, 6)
-                .frame(height: 32)
+                .frame(height: 44)
             }
-            .frame(width: 180)
+            .frame(width: 190)
             .background(Color.primary.opacity(0.03))
 
             Divider().opacity(0.4)
@@ -1038,20 +1002,16 @@ private struct ProfileEditorView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
 
-                // Name
-                VStack(alignment: .leading, spacing: 5) {
-                    fieldLabel("Name")
+                SettingsSection(title: "Profile name") {
                     TextField("Profile name", text: $draft.name)
                         .textFieldStyle(.plain)
                         .glassField()
                         .onChange(of: draft.name) { _, _ in autosave() }
                 }
 
-                // Provider + Model
-                VStack(alignment: .leading, spacing: 5) {
-                    fieldLabel("Provider & Model")
+                SettingsSection(title: "Provider and model") {
                     HStack(spacing: 8) {
-                        Picker("", selection: Binding(
+                        Picker("Provider", selection: Binding(
                             get: { draft.provider },
                             set: { p in
                                 draft.provider = p
@@ -1120,7 +1080,7 @@ private struct ProfileEditorView: View {
 
                     HStack(spacing: 8) {
                         Text("Provider").font(.caption).foregroundStyle(.secondary).frame(width: 55, alignment: .leading)
-                        Picker("", selection: Binding<Provider?>(
+                        Picker("Visual context provider", selection: Binding<Provider?>(
                             get: { draft.visionProvider },
                             set: { p in
                                 draft.visionProvider = p
@@ -1160,12 +1120,10 @@ private struct ProfileEditorView: View {
                 .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
 
-                // System Prompt
-                VStack(alignment: .leading, spacing: 5) {
-                    fieldLabel("System Prompt")
+                SettingsSection(title: "System prompt") {
                     TextEditor(text: $draft.systemPrompt)
                         .font(.system(.body, design: .monospaced))
-                        .frame(height: 90)
+                        .frame(height: 120)
                         .scrollContentBackground(.hidden)
                         .padding(6)
                         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
@@ -1221,6 +1179,7 @@ private struct ProfileEditorView: View {
                             ),
                             in: 256...16384, step: 256
                         )
+                        .accessibilityLabel("Maximum output tokens")
                     }
 
                     Divider().opacity(0.4)
@@ -1248,6 +1207,7 @@ private struct ProfileEditorView: View {
                                 ),
                                 in: 0.0...2.0, step: 0.1
                             )
+                            .accessibilityLabel("Temperature")
                             Text(temperatureIgnored
                                  ? "Not sent while thinking is on, or to Claude, GPT-5 and o-series models."
                                  : "Lower = focused · Higher = creative. GPT-5 and o-series models ignore this.")
@@ -1282,7 +1242,7 @@ private struct ProfileEditorView: View {
                             HStack(spacing: 10) {
                                 fieldLabel("Effort")
                                     .fixedSize()
-                                Picker("", selection: $draft.reasoningEffort) {
+                                Picker("Reasoning effort", selection: $draft.reasoningEffort) {
                                     ForEach(ReasoningEffort.allCases, id: \.self) { e in
                                         Text(e.displayName).tag(e)
                                     }
@@ -1347,7 +1307,7 @@ private struct ProfileEditorView: View {
                     .foregroundStyle(.tertiary)
             }
         } else {
-            Picker("", selection: Binding(
+            Picker("Model", selection: Binding(
                 get: { draft.model },
                 set: { draft.model = $0; autosave() }
             )) {
@@ -1369,13 +1329,20 @@ private struct SettingsSection<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.caption2)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
-                .padding(.leading, 2)
-            content
+                .font(.headline)
+                .padding(.leading, 4)
+            VStack(alignment: .leading, spacing: 16) {
+                content
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(.primary.opacity(0.06))
+            }
         }
     }
 }

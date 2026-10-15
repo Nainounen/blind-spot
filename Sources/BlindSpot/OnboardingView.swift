@@ -15,7 +15,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
                 self?.onComplete?()
             }
             let w = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 560, height: 520),
+                contentRect: NSRect(x: 0, y: 0, width: 680, height: 680),
                 styleMask: [.titled, .closable, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
@@ -25,9 +25,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
             w.titlebarAppearsTransparent = true
             w.isMovableByWindowBackground = true
             let hostingView = NSHostingView(rootView: view)
-            let glassView = NSGlassEffectView()
-            glassView.contentView = hostingView
-            w.contentView = glassView
+            w.contentView = hostingView
             w.center()
             w.delegate = self
             window = w
@@ -51,6 +49,7 @@ private enum Step: Int, CaseIterable {
 struct OnboardingView: View {
     var onComplete: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var step: Step = .welcome
     @State private var selectedProvider: Provider = PreferencesStore.shared.providerChoice
     @State private var apiKey: String = ""
@@ -58,28 +57,56 @@ struct OnboardingView: View {
     @State private var axGranted: Bool = AXIsProcessTrusted()
     @State private var axTimer: Timer?
 
+    private var setupSteps: [Step] {
+        selectedProvider.requiresKey ? [.provider, .apiKey, .accessibility] : [.provider, .accessibility]
+    }
+
+    private var stepNumber: Int { (setupSteps.firstIndex(of: step) ?? 0) + 1 }
+
+    private var stepLabels: [String] {
+        setupSteps.map { $0 == .provider ? "Provider" : $0 == .apiKey ? "API key" : "Permissions" }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Titlebar clearance + step dots
-            VStack(spacing: 12) {
-                Spacer().frame(height: 20)
+            HStack {
+                Label("BlindSpot", systemImage: "sparkle")
+                    .font(.headline)
+                Spacer()
                 if step != .welcome && step != .done {
-                    StepDots(current: step.rawValue, total: Step.allCases.count - 2)
+                    Text("Step \(stepNumber) of \(setupSteps.count)")
+                        .font(.callout).foregroundStyle(.secondary)
+                } else {
+                    Text(step == .done ? "Ready to go" : "Welcome").font(.callout).foregroundStyle(.secondary)
                 }
             }
-            .frame(height: step == .welcome || step == .done ? 44 : 60)
+            .padding(.horizontal, 32)
+            .padding(.top, 44)
+            .padding(.bottom, 20)
 
-            stepView
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if step != .welcome && step != .done {
+                StepDots(current: stepNumber, labels: stepLabels)
+                    .padding(.bottom, 24)
+            }
+
+            ScrollView {
+                stepView
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+            }
+            .id(step)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             // Bottom nav
             if step != .welcome && step != .done {
                 Divider().opacity(0.4)
                 HStack {
-                    Button("Back") { go(to: step.previous) }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                        .font(.callout)
+                    Button("Back") {
+                        let previous = step == .accessibility && !selectedProvider.requiresKey ? Step.provider : step.previous
+                        go(to: previous)
+                    }
+                        .buttonStyle(.glass)
+                        .controlSize(.large)
                     Spacer()
                     nextButton
                 }
@@ -87,6 +114,7 @@ struct OnboardingView: View {
                 .padding(.vertical, 14)
             }
         }
+        .background(Color(nsColor: .windowBackgroundColor))
         .onDisappear { axTimer?.invalidate() }
     }
 
@@ -106,7 +134,7 @@ struct OnboardingView: View {
     // MARK: - Navigation
 
     private func go(to next: Step) {
-        withAnimation(.easeInOut(duration: 0.18)) { step = next }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { step = next }
     }
 
     private var nextButton: some View {
@@ -130,7 +158,8 @@ struct OnboardingView: View {
                 finish()
             }
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.glassProminent)
+        .controlSize(.large)
         .keyboardShortcut(.return, modifiers: [])
     }
 
@@ -167,17 +196,27 @@ struct OnboardingView: View {
 
 private struct StepDots: View {
     let current: Int
-    let total: Int
+    let labels: [String]
+
+    private var total: Int { labels.count }
 
     var body: some View {
-        HStack(spacing: 6) {
-            ForEach(1...total, id: \.self) { i in
-                Capsule()
-                    .fill(i == current ? Color.accentColor : Color.primary.opacity(0.15))
-                    .frame(width: i == current ? 16 : 6, height: 6)
-                    .animation(.easeInOut(duration: 0.2), value: current)
+        HStack(spacing: 12) {
+            ForEach(1...total, id: \.self) { index in
+                HStack(spacing: 6) {
+                    Image(systemName: "\(index).circle.fill")
+                        .foregroundStyle(index <= current ? Color.accentColor : Color.secondary)
+                    Text(labels[index - 1])
+                        .font(.callout.weight(index == current ? .semibold : .regular))
+                        .foregroundStyle(index == current ? .primary : .secondary)
+                }
+                if index < total {
+                    Rectangle().fill(.quaternary).frame(width: 24, height: 1)
+                }
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Setup step \(current) of \(total)")
     }
 }
 
@@ -189,14 +228,16 @@ private struct WelcomeStep: View {
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "sparkle")
-                .font(.system(size: 56, weight: .light))
+                .font(.system(size: 44, weight: .medium))
+                .frame(width: 88, height: 88)
+                .background(.purple.opacity(0.10), in: RoundedRectangle(cornerRadius: 24))
                 .foregroundStyle(.purple.gradient)
                 .padding(.top, 16)
 
             VStack(spacing: 6) {
                 Text("BlindSpot")
                     .font(.system(size: 32, weight: .bold))
-                Text("AI answers for anything you select —\ncompletely invisible to screen recorders.")
+                Text("Answers for anything you select.\nRight where you work.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -214,7 +255,7 @@ private struct WelcomeStep: View {
             .padding(.horizontal, 40)
 
             Button("Get Started") { onStart() }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
                 .controlSize(.large)
                 .keyboardShortcut(.return, modifiers: [])
                 .padding(.bottom, 24)
@@ -242,22 +283,28 @@ private struct ProviderStep: View {
     @Binding var selected: Provider
 
     private let columns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12),
     ]
 
     var body: some View {
         VStack(spacing: 16) {
             StepHeader(title: "Choose your AI", subtitle: "You can change this anytime from the menu bar.")
 
-            LazyVGrid(columns: columns, spacing: 10) {
+            LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(Provider.allCases, id: \.rawValue) { p in
-                    ProviderCard(provider: p, isSelected: selected == p)
-                        .onTapGesture { withAnimation { selected = p } }
+                    Button {
+                        selected = p
+                    } label: {
+                        ProviderCard(provider: p, isSelected: selected == p)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(p.displayName)
+                    .accessibilityValue(selected == p ? "Selected" : "Not selected")
+                    .accessibilityAddTraits(selected == p ? [.isSelected] : [])
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 32)
 
             Spacer()
         }
@@ -269,31 +316,34 @@ private struct ProviderCard: View {
     let isSelected: Bool
 
     var body: some View {
-        VStack(spacing: 8) {
-            ProviderIcon(provider: provider, size: 28, foregroundColor: isSelected ? .white : .primary)
+        HStack(spacing: 12) {
+            ProviderIcon(provider: provider, size: 26)
+                .frame(width: 40, height: 40)
+                .background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
 
-            Text(provider.displayName)
-                .font(.callout.weight(.medium))
-                .lineLimit(1)
-                .foregroundStyle(isSelected ? .white : .primary)
-
-            Text(provider.cardDescription)
-                .font(.caption2)
-                .foregroundStyle(isSelected ? .white.opacity(0.85) : .secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(provider.displayName).font(.body.weight(.semibold))
+                Text(provider.cardDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                .font(.title3)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .padding(.horizontal, 8)
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 78, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(isSelected ? Color.accentColor : Color.primary.opacity(0.04))
+            isSelected ? Color.accentColor.opacity(0.08) : Color(nsColor: .controlBackgroundColor),
+            in: RoundedRectangle(cornerRadius: 14)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(isSelected ? Color.accentColor : Color.primary.opacity(0.10), lineWidth: 1.5)
-        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(isSelected ? Color.accentColor : Color.primary.opacity(0.12), lineWidth: isSelected ? 2 : 1)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 14))
     }
 }
 
@@ -333,7 +383,7 @@ private struct APIKeyStep: View {
 
                 HStack(spacing: 5) {
                     Image(systemName: "lock.fill").font(.caption2)
-                    Text("Saved to ~/.config/blind-spot/keys/\(provider.rawValue)")
+                    Text("Stored on this Mac")
                         .font(.caption)
                 }
                 .foregroundStyle(.secondary)
@@ -350,7 +400,7 @@ private struct APIKeyStep: View {
 
             Text("You can also skip this and add the key later in Settings.")
                 .font(.caption)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
                 .padding(.bottom, 8)
         }
     }
@@ -391,7 +441,7 @@ private struct AccessibilityStep: View {
                         NSWorkspace.shared.open(url)
                         onOpen()
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.glassProminent)
                     .controlSize(.large)
 
                     Label("Waiting for permission…", systemImage: "clock")
@@ -405,7 +455,7 @@ private struct AccessibilityStep: View {
             if !granted {
                 Text("You can also skip this and grant access later in Settings.")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .padding(.bottom, 4)
             }
         }
@@ -465,23 +515,23 @@ private struct DoneStep: View {
                 }
                 .font(.title3)
 
-                Text("The  icon in your menu bar gives you settings and provider switching.")
+                Text("Open BlindSpot in the menu bar to switch providers or change settings.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
                     .padding(.top, 4)
 
-                Text("A \"Default\" AI profile has been created for you. You can add more profiles in Settings → Profiles.")
+                Text("Your default profile is ready. Add more in Settings → Profiles.")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
                     .padding(.top, 4)
             }
 
             Button("Start Using BlindSpot") { onComplete() }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
                 .controlSize(.large)
                 .keyboardShortcut(.return, modifiers: [])
 
@@ -508,9 +558,9 @@ private struct StepHeader: View {
     let subtitle: String
 
     var body: some View {
-        VStack(spacing: 5) {
+        VStack(spacing: 8) {
             Text(title)
-                .font(.title3.bold())
+                .font(.system(size: 26, weight: .bold))
             Text(subtitle)
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -544,14 +594,14 @@ private extension Step {
 private extension Provider {
     var cardDescription: String {
         switch self {
-        case .openai:     return "GPT-4o\nBest all-round\nNeeds API key"
-        case .anthropic:  return "Claude\nGreat for reasoning\nNeeds API key"
-        case .gemini:     return "Gemini 2.5\nFast & cheap\nNeeds API key"
-        case .deepseek:   return "DeepSeek\nVery cheap\nNeeds API key"
-        case .grok:       return "Grok 4.6\nxAI model\nNeeds API key"
-        case .openrouter: return "100+ models\nOne API key\nNeeds API key"
-        case .ollama:     return "Local models\nFree & private\nNo API key"
-        case .local:      return "oMLX, LM Studio\nOpenAI-compatible\nNo API key"
+        case .openai:     return "OpenAI models · API key"
+        case .anthropic:  return "Claude models · API key"
+        case .gemini:     return "Google models · API key"
+        case .deepseek:   return "DeepSeek models · API key"
+        case .grok:       return "xAI models · API key"
+        case .openrouter: return "Many providers · One API key"
+        case .ollama:     return "Local models · No key needed"
+        case .local:      return "Compatible servers · Local"
         }
     }
 }
