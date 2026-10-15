@@ -233,6 +233,7 @@ private struct SidebarView: View {
                 }
             }
             .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
             .overlay {
                 if filteredConversations.isEmpty && (folders.isEmpty || !vm.sidebarSearch.isEmpty) {
                     Text(vm.sidebarSearch.isEmpty ? "No conversations yet" : "No results")
@@ -868,7 +869,6 @@ struct CommandPanelView: View {
                 }
             )
             .frame(width: sidebarWidth)
-            .background(Color.primary.opacity(0.03))
 
             Divider()
 
