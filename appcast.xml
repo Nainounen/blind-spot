@@ -3,26 +3,16 @@
     <channel>
         <title>BlindSpot</title>
         <item>
-            <title>2.4.10</title>
-            <pubDate>Thu, 15 Oct 2026 13:24:40 +0000</pubDate>
+            <title>2.4.11</title>
+            <pubDate>Thu, 15 Oct 2026 14:33:53 +0000</pubDate>
             <link>https://github.com/Nainounen/blind-spot/releases</link>
-            <sparkle:version>2.4.10</sparkle:version>
-            <sparkle:shortVersionString>2.4.10</sparkle:shortVersionString>
+            <sparkle:version>2.4.11</sparkle:version>
+            <sparkle:shortVersionString>2.4.11</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown">## What’s new
-
-- Auto-Answer progress follows the chat panel’s Light, Dark or System appearance.
-- Successfully filled Classtime questions are saved as readable chats, grouped by browser tab, participant session and profile. Review or export them as Markdown or JSON.
-- The Accessibility-based Auto-Answer path saves generated responses by run and marks fills as unverified.
-- Select several chats with Command-click or Shift-click. Command-A in the sidebar selects all chats, or matching search results.
-- Move, export or delete selected chats together. Deletion asks for confirmation.
-- Cancelled chat requests cannot write back into a deleted or newly opened conversation.
-- The README now covers context files, browser setup, session history and sidebar shortcuts.
-
-## Install
+            <description sparkle:format="markdown"><![CDATA[## Install
 
 **Easy / no terminal:**
-1. Download `BlindSpot-2.4.10.dmg` below
+1. Download `BlindSpot-2.4.11.dmg` below
 2. Double-click to mount it
 3. Drag **BlindSpot** onto the **Applications** folder
 4. Launch it — the app is signed with a Developer ID and notarized by Apple, so it opens normally.
@@ -34,9 +24,9 @@ brew install --cask blindspot
 ```
 
 
-**Full Changelog**: https://github.com/Nainounen/blind-spot/compare/v2.4.9...v2.4.10
-</description>
-            <enclosure url="https://github.com/Nainounen/blind-spot/releases/download/v2.4.10/BlindSpot-2.4.10.dmg" length="5539347" type="application/octet-stream" sparkle:edSignature="/fYjj5Czm2UCXrsNCDOOJsIPfrX/RKDpGn9zV4mTOmg8oydGH8FHUzXpS1ilTRyQEaYB1h6BmBT/dlJuA8UpCw=="/>
+**Full Changelog**: https://github.com/Nainounen/blind-spot/compare/v2.4.10...v2.4.11
+]]></description>
+            <enclosure url="https://github.com/Nainounen/blind-spot/releases/download/v2.4.11/BlindSpot-2.4.11.dmg" length="5538124" type="application/octet-stream" sparkle:edSignature="5fKrx1GfKKlm0RchIYY9SkCzZpdVKEvZQCpmBWDmekQnntBz6PDhMPQ+iPjf4QHd2RYV26D7sYVDssEUP/Q4Bg=="/>
         </item>
     </channel>
 </rss>
