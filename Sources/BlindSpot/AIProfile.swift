@@ -69,9 +69,12 @@ extension AIProfile {
     }
 
     var contextFiles: [URL] {
-        let files = (try? FileManager.default.contentsOfDirectory(at: contextDirectory, includingPropertiesForKeys: nil)) ?? []
+        // Only immediate files are context. Subfolders such as archive stay excluded.
+        let files = (try? FileManager.default.contentsOfDirectory(at: contextDirectory,
+                                                                 includingPropertiesForKeys: [.isRegularFileKey])) ?? []
         return files
-            .filter { ["md", "markdown", "txt"].contains($0.pathExtension.lowercased()) }
+            .filter { ["md", "markdown", "txt", "html", "htm", "xml"].contains($0.pathExtension.lowercased()) }
+            .filter { (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 

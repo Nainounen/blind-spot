@@ -1153,7 +1153,7 @@ private struct ProfileEditorView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                     }
-                    Text("Add one or more .md files, like notes about you, your course or your projects. They're sent after the system prompt at the start of each new conversation.")
+                    Text("Use any filename, such as course-notes.txt. Markdown, TXT, HTML and XML files must use UTF-8 text. Files are included when a new chat starts and reread for every Auto-Answer question. Start a new chat after changing files. Subfolders such as archive are ignored, so you can keep old files there.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

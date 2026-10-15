@@ -200,6 +200,7 @@ jobs:
         if: steps.check.outputs.skipped == 'false' && steps.meta.outputs.prerelease == 'false'
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -207,6 +208,10 @@ jobs:
             echo "::warning::SPARKLE_PRIVATE_KEY secret not set — skipping appcast generation."
             exit 0
           fi
+          # Embed the published release body so Sparkle can display it offline.
+          ARCHIVE_NAME="${{ steps.meta.outputs.dmg_name }}"
+          gh release view "v${{ steps.meta.outputs.version }}" --json body --jq '.body // ""' \
+            > "dist/${ARCHIVE_NAME%.*}.md"
           # Resolve Sparkle tools from the SPM artifacts cache
           swift package resolve 2>/dev/null || true
           SPARKLE_TOOLS=".build/artifacts/sparkle/Sparkle/bin"
@@ -215,6 +220,7 @@ jobs:
           echo -n "$SPARKLE_PRIVATE_KEY" > "$KEYFILE"
           "$SPARKLE_TOOLS/generate_appcast" \
             --ed-key-file "$KEYFILE" \
+            --embed-release-notes \
             --link "https://github.com/Nainounen/blind-spot/releases" \
             --download-url-prefix "https://github.com/Nainounen/blind-spot/releases/download/v${{ steps.meta.outputs.version }}/" \
             dist/
