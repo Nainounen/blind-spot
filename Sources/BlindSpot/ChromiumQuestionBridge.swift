@@ -21,8 +21,8 @@ struct BrowserBridgeError: LocalizedError {
 struct ChromiumQuestionBridge {
     let bundleID: String
     let processID: pid_t
-    let windowID: Int
-    let tabID: Int
+    let windowID: String
+    let tabID: String
     let pageURL: String
 
     private static let supportedBrowsers: Set<String> = [
@@ -34,15 +34,16 @@ struct ChromiumQuestionBridge {
     static func frontmostClasstime() throws -> ChromiumQuestionBridge? {
         guard let app = NSWorkspace.shared.frontmostApplication,
               let bundleID = app.bundleIdentifier, supportedBrowsers.contains(bundleID) else { return nil }
-        let result = try script(bundleID: bundleID, commands: "if (count of windows) = 0 then return {}\nreturn {id of front window, id of active tab of front window, URL of active tab of front window}")
+        let result = try script(bundleID: bundleID, commands: "if (count of windows) = 0 then return {}\nreturn {(id of front window as text), (id of active tab of front window as text), URL of active tab of front window}")
         guard result.numberOfItems == 3,
+              let windowID = result.atIndex(1)?.stringValue, !windowID.isEmpty,
+              let tabID = result.atIndex(2)?.stringValue, !tabID.isEmpty,
               let urlString = result.atIndex(3)?.stringValue,
               let url = URL(string: urlString),
               url.scheme == "https", let host = url.host,
               host == "classtime.com" || host.hasSuffix(".classtime.com") else { return nil }
         return ChromiumQuestionBridge(bundleID: bundleID, processID: app.processIdentifier,
-                                      windowID: Int(result.atIndex(1)!.int32Value),
-                                      tabID: Int(result.atIndex(2)!.int32Value), pageURL: urlString)
+                                      windowID: windowID, tabID: tabID, pageURL: urlString)
     }
 
     func extract() throws -> BrowserQuestion {
@@ -89,15 +90,13 @@ struct ChromiumQuestionBridge {
         let source = try String(contentsOf: resource, encoding: .utf8)
         let json = String(decoding: try JSONSerialization.data(withJSONObject: request), as: UTF8.self)
         let javascript = "\(source)(\(json))"
-        let escaped = javascript.replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "\r", with: "\\r").replacingOccurrences(of: "\n", with: "\\n")
-        let escapedURL = pageURL.replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "\r", with: "\\r").replacingOccurrences(of: "\n", with: "\\n")
+        let escaped = Self.escapeAppleScript(javascript)
+        let escapedURL = Self.escapeAppleScript(pageURL)
+        let escapedWindowID = Self.escapeAppleScript(windowID)
+        let escapedTabID = Self.escapeAppleScript(tabID)
         let commands = "if (count of windows) = 0 then error \"The browser window closed.\"\n" +
-            "if id of front window is not \(windowID) then error \"The browser window changed.\"\n" +
-            "if id of active tab of front window is not \(tabID) then error \"The active tab changed.\"\n" +
+            "if (id of front window as text) is not \"\(escapedWindowID)\" then error \"The browser window changed.\"\n" +
+            "if (id of active tab of front window as text) is not \"\(escapedTabID)\" then error \"The active tab changed.\"\n" +
             "if URL of active tab of front window is not \"\(escapedURL)\" then error \"The page changed.\"\n" +
             "return execute active tab of front window javascript \"\(escaped)\""
         let result = try Self.script(bundleID: bundleID, commands: commands)
@@ -109,6 +108,13 @@ struct ChromiumQuestionBridge {
         return data
     }
 
+    private static func escapeAppleScript(_ value: String) -> String {
+        value.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\n", with: "\\n")
+    }
+
     private static func script(bundleID: String, commands: String) throws -> NSAppleEventDescriptor {
         let source = "with timeout of 5 seconds\ntell application id \"\(bundleID)\"\n\(commands)\nend tell\nend timeout"
         var error: NSDictionary?
@@ -118,7 +124,14 @@ struct ChromiumQuestionBridge {
         let result = script.executeAndReturnError(&error)
         if let error {
             let detail = error[NSAppleScript.errorMessage] as? String ?? "Browser automation failed."
-            throw BrowserBridgeError(message: "\(detail)\n\nAllow BlindSpot in System Settings > Privacy & Security > Automation. In your browser, enable View > Developer > Allow JavaScript from Apple Events.")
+            let code = (error[NSAppleScript.errorNumber] as? NSNumber)?.intValue
+            let message: String
+            if code == -1743 {
+                message = "\(detail)\n\nAllow BlindSpot in System Settings > Privacy & Security > Automation."
+            } else {
+                message = detail
+            }
+            throw BrowserBridgeError(message: message)
         }
         return result
     }
