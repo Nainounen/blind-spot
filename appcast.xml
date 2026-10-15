@@ -3,13 +3,30 @@
     <channel>
         <title>BlindSpot</title>
         <item>
-            <title>2.4.8</title>
-            <pubDate>Thu, 15 Oct 2026 12:10:05 +0000</pubDate>
+            <title>2.4.9</title>
+            <pubDate>Thu, 15 Oct 2026 12:56:38 +0000</pubDate>
             <link>https://github.com/Nainounen/blind-spot/releases</link>
-            <sparkle:version>2.4.8</sparkle:version>
-            <sparkle:shortVersionString>2.4.8</sparkle:shortVersionString>
+            <sparkle:version>2.4.9</sparkle:version>
+            <sparkle:shortVersionString>2.4.9</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/Nainounen/blind-spot/releases/download/v2.4.8/BlindSpot-2.4.8.dmg" length="5478263" type="application/octet-stream" sparkle:edSignature="UyuYYBTzxPNcIWgpX4yqV4vlk7QvX+SkxpxdMBVtZPPC0o/ABmZYq7A2eYUSVNJuFdKpxshGaW3Yom7UWnBiAw=="/>
+            <description sparkle:format="markdown"><![CDATA[## Install
+
+**Easy / no terminal:**
+1. Download `BlindSpot-2.4.9.dmg` below
+2. Double-click to mount it
+3. Drag **BlindSpot** onto the **Applications** folder
+4. Launch it — the app is signed with a Developer ID and notarized by Apple, so it opens normally.
+
+**Homebrew:**
+```
+brew tap Nainounen/blindspot
+brew install --cask blindspot
+```
+
+
+**Full Changelog**: https://github.com/Nainounen/blind-spot/compare/v2.4.8...v2.4.9
+]]></description>
+            <enclosure url="https://github.com/Nainounen/blind-spot/releases/download/v2.4.9/BlindSpot-2.4.9.dmg" length="5507958" type="application/octet-stream" sparkle:edSignature="hUo/Jy/sMOIzbGhPJiNEWJaZ3ITUyDkL6PUKUg8KV7vHrTtfPSS3LhGMPHU9wHHKxXeNYCjOt8YuMfiF5noiDA=="/>
         </item>
     </channel>
 </rss>
