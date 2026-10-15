@@ -9,7 +9,11 @@
             <sparkle:version>2.4.11</sparkle:version>
             <sparkle:shortVersionString>2.4.11</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[## Install
+            <description sparkle:format="markdown"><![CDATA[## What's new
+
+The chat sidebar now shares the chat panel's glass background in light and dark mode, removing the contrasting sidebar fill. Chat multi-selection, folder actions and keyboard shortcuts work as before.
+
+## Install
 
 **Easy / no terminal:**
 1. Download `BlindSpot-2.4.11.dmg` below
