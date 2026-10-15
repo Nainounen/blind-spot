@@ -3,26 +3,16 @@
     <channel>
         <title>BlindSpot</title>
         <item>
-            <title>2.4.9</title>
-            <pubDate>Thu, 15 Oct 2026 12:56:38 +0000</pubDate>
+            <title>2.4.10</title>
+            <pubDate>Thu, 15 Oct 2026 13:24:40 +0000</pubDate>
             <link>https://github.com/Nainounen/blind-spot/releases</link>
-            <sparkle:version>2.4.9</sparkle:version>
-            <sparkle:shortVersionString>2.4.9</sparkle:shortVersionString>
+            <sparkle:version>2.4.10</sparkle:version>
+            <sparkle:shortVersionString>2.4.10</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown">## What’s new
-
-- Auto-Answer now uses the active profile’s custom system instructions and context files.
-- Context files support Markdown, TXT, HTML and XML with any filename. Keep archived files in subfolders to exclude them from prompts.
-- Settings explains how context is used in normal chats and Auto-Answer, and when to start a new chat after editing files.
-- A small progress indicator follows the pointer while Auto-Answer runs, without taking focus or intercepting clicks. Reduce Motion uses a static hourglass.
-- Sparkle updates now include the GitHub release changelog.
-
-PDF context files are not supported in this release.
-
-## Install
+            <description sparkle:format="markdown"><![CDATA[## Install
 
 **Easy / no terminal:**
-1. Download `BlindSpot-2.4.9.dmg` below
+1. Download `BlindSpot-2.4.10.dmg` below
 2. Double-click to mount it
 3. Drag **BlindSpot** onto the **Applications** folder
 4. Launch it — the app is signed with a Developer ID and notarized by Apple, so it opens normally.
@@ -34,9 +24,9 @@ brew install --cask blindspot
 ```
 
 
-**Full Changelog**: https://github.com/Nainounen/blind-spot/compare/v2.4.8...v2.4.9
-</description>
-            <enclosure url="https://github.com/Nainounen/blind-spot/releases/download/v2.4.9/BlindSpot-2.4.9.dmg" length="5507958" type="application/octet-stream" sparkle:edSignature="hUo/Jy/sMOIzbGhPJiNEWJaZ3ITUyDkL6PUKUg8KV7vHrTtfPSS3LhGMPHU9wHHKxXeNYCjOt8YuMfiF5noiDA=="/>
+**Full Changelog**: https://github.com/Nainounen/blind-spot/compare/v2.4.9...v2.4.10
+]]></description>
+            <enclosure url="https://github.com/Nainounen/blind-spot/releases/download/v2.4.10/BlindSpot-2.4.10.dmg" length="5539347" type="application/octet-stream" sparkle:edSignature="/fYjj5Czm2UCXrsNCDOOJsIPfrX/RKDpGn9zV4mTOmg8oydGH8FHUzXpS1ilTRyQEaYB1h6BmBT/dlJuA8UpCw=="/>
         </item>
     </channel>
 </rss>
