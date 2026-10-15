@@ -9,7 +9,8 @@ swift build 2>&1 | grep -E "error:|Build complete"
 
 echo "Packaging ${APP}..."
 rm -rf "${APP}"
-mkdir -p "${APP}/Contents/MacOS"
+mkdir -p "${APP}/Contents/MacOS" "${APP}/Contents/Resources"
+cp -R ".build/debug/BlindSpot_BlindSpot.bundle" "${APP}/Contents/Resources/"
 
 ln -s "$(pwd)/${BINARY}" "${APP}/Contents/MacOS/BlindSpot"
 
@@ -32,6 +33,8 @@ cat > "${APP}/Contents/Info.plist" << 'PLIST'
     <true/>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>BlindSpot reads and fills the current browser question when you use Auto-Answer.</string>
     <key>NSAccessibilityUsageDescription</key>
     <string>BlindSpot reads your selected text to answer questions about it.</string>
 </dict>

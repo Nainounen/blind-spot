@@ -54,6 +54,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleIconFile</key>        <string>BlindSpot</string>
   <key>LSMinimumSystemVersion</key>  <string>14.0</string>
   <key>LSUIElement</key>             <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>BlindSpot reads and fills the current browser question when you use Auto-Answer.</string>
   <key>NSAccessibilityUsageDescription</key>
   <string>BlindSpot reads your selected text to answer AI questions. It never accesses content you haven't selected.</string>
   <key>NSHumanReadableCopyright</key><string>MIT License</string>
