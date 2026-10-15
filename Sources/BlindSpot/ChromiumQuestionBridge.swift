@@ -27,7 +27,8 @@ struct ChromiumQuestionBridge {
 
     private static let supportedBrowsers: Set<String> = [
         "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.canary",
-        "org.chromium.Chromium", "com.brave.Browser", "com.microsoft.edgemac"
+        "org.chromium.Chromium", "com.brave.Browser", "com.microsoft.edgemac",
+        "com.citrolabs.ego.lite"
     ]
 
     static func frontmostClasstime() throws -> ChromiumQuestionBridge? {
