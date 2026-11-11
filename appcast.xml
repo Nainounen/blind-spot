@@ -3,20 +3,16 @@
     <channel>
         <title>BlindSpot</title>
         <item>
-            <title>2.4.11</title>
-            <pubDate>Thu, 15 Oct 2026 14:33:53 +0000</pubDate>
+            <title>2.4.12</title>
+            <pubDate>Wed, 11 Nov 2026 14:41:04 +0000</pubDate>
             <link>https://github.com/Nainounen/blind-spot/releases</link>
-            <sparkle:version>2.4.11</sparkle:version>
-            <sparkle:shortVersionString>2.4.11</sparkle:shortVersionString>
+            <sparkle:version>2.4.12</sparkle:version>
+            <sparkle:shortVersionString>2.4.12</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[## What's new
-
-The chat sidebar now shares the chat panel's glass background in light and dark mode, removing the contrasting sidebar fill. Chat multi-selection, folder actions and keyboard shortcuts work as before.
-
-## Install
+            <description sparkle:format="markdown"><![CDATA[## Install
 
 **Easy / no terminal:**
-1. Download `BlindSpot-2.4.11.dmg` below
+1. Download `BlindSpot-2.4.12.dmg` below
 2. Double-click to mount it
 3. Drag **BlindSpot** onto the **Applications** folder
 4. Launch it — the app is signed with a Developer ID and notarized by Apple, so it opens normally.
@@ -28,9 +24,9 @@ brew install --cask blindspot
 ```
 
 
-**Full Changelog**: https://github.com/Nainounen/blind-spot/compare/v2.4.10...v2.4.11
+**Full Changelog**: https://github.com/Nainounen/blind-spot/compare/v2.4.11...v2.4.12
 ]]></description>
-            <enclosure url="https://github.com/Nainounen/blind-spot/releases/download/v2.4.11/BlindSpot-2.4.11.dmg" length="5538124" type="application/octet-stream" sparkle:edSignature="5fKrx1GfKKlm0RchIYY9SkCzZpdVKEvZQCpmBWDmekQnntBz6PDhMPQ+iPjf4QHd2RYV26D7sYVDssEUP/Q4Bg=="/>
+            <enclosure url="https://github.com/Nainounen/blind-spot/releases/download/v2.4.12/BlindSpot-2.4.12.dmg" length="5508851" type="application/octet-stream" sparkle:edSignature="MIGr9+rmhANR6SWydfgLsQ1ay6ikI9XYG74aKVbdKVmXLnv53gMAaprUZ2lWYOdNnyBdvYoyUvvkROd8xhlTAg=="/>
         </item>
     </channel>
 </rss>
