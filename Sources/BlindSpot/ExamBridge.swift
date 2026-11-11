@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 
 // MARK: - Models (decoded from the injected ExamBridge.js)
 
@@ -83,6 +84,34 @@ struct ExamBridge {
 
     static let sebBundleID = "org.safeexambrowser.SafeExamBrowser"
     static let sebBridgeURL = URL(string: "http://127.0.0.1:47611/eval")!
+
+    /// Shared loopback auth token, stored (0o600) in ~/.config/blind-spot/bridge-token and
+    /// shared with the Safe Exam Browser bridge so no secret is hardcoded in either binary.
+    /// Both apps create it atomically (O_EXCL) on first use; the first writer wins and the
+    /// other reads the same value back.
+    static func bridgeToken() -> String {
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/blind-spot", isDirectory: true)
+        let file = dir.appendingPathComponent("bridge-token")
+        func read() -> String {
+            (try? String(contentsOf: file, encoding: .utf8))?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }
+        let existing = read()
+        if !existing.isEmpty { return existing }
+        let token = UUID().uuidString
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let data = Data((token + "\n").utf8)
+        let fd = file.path.withCString { open($0, O_CREAT | O_EXCL | O_WRONLY, 0o600) }
+        if fd >= 0 {
+            data.withUnsafeBytes { _ = write(fd, $0.baseAddress, $0.count) }
+            close(fd)
+        } else {
+            let other = read()
+            if !other.isEmpty { return other }
+        }
+        return token
+    }
 
     private static let chromiumBundleIDs: Set<String> = [
         "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.dev",
@@ -198,7 +227,7 @@ struct ExamBridge {
         req.httpMethod = "POST"
         req.httpBody = javascript.data(using: .utf8)
         req.timeoutInterval = 30
-        req.setValue("BSBridge-7f3a9c2e", forHTTPHeaderField: "X-Bridge-Token")
+        req.setValue(Self.bridgeToken(), forHTTPHeaderField: "X-Bridge-Token")
         do {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200,
