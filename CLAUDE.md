@@ -24,20 +24,21 @@ Bump `VERSION` (e.g. `1.0.7` → `1.0.8`), commit, and push to `main`. GitHub Ac
 | Shortcut | Action | Status |
 |---|---|---|
 | `⌘⇧Space` | Ask about selected text (standard) | Stable |
-| `⌘⌥A` | Answer current exam question via AX | **Beta** |
-| `⌘⌥⇧A` | Answer all questions on page via AX | **Beta** |
+| `⌘⌥A` | Answer exam question(s) in the frontmost browser | **Beta** |
+| `⌘⌥⇧A` | Answer all questions on the page | **Beta** |
 | `⌘⌥Q` | Panic quit | Stable |
 
 ### Auto-Answer (Beta)
 
-The auto-answer feature (`AutoAnswerService`) uses the Accessibility API to read exam questions from the AX tree around the focused field, sends them to the configured AI, and pastes the answer back. It supports text inputs, radio/checkbox groups, select dropdowns, and ordering questions.
+The auto-answer feature (`AutoAnswerService`) detects the frontmost browser — Safe Exam Browser (WebKit, via a custom `evaluate javascript` AppleScript command added to the user's SEB fork) or any Chromium browser (Chrome/Brave/Edge) — injects generic JavaScript (`ExamBridge.js`) that walks the page DOM and returns structured questions (text, options, input types, inline images), screenshots the exam window so a vision model can read image-based questions, sends the questions to the configured AI for a strict JSON fill plan, then injects a generic applier that fills each control by type (radio/checkbox click, text/textarea set, select set, rich-editor insert, ordering best-effort) and verifies the change.
+
+The old AX-based approach and the Classtime-specific bridge were removed. There are no hardcoded `data-testid` selectors; detection is DOM-structural (Moodle `.que` containers first, generic form-control grouping as fallback).
 
 **Known limitations (beta):**
-- Text input paste can be unreliable in some WebKit configurations
-- Multi-select (checkbox) questions sometimes only select one option
-- Ordering questions (drag-and-drop) have limited support
-- Answer-All can be slow with many questions due to sequential AI calls
-- Not guaranteed to work with all exam platforms (Safe Exam Browser, lockdown browsers)
+- Ordering (drag-and-drop) questions are best-effort and reported as "needs manual check" when they can't be filled.
+- Answer-All answers every question detected on the current page in one AI call; Moodle's one-question-per-page default makes the two hotkeys equivalent there.
+- Requires Automation permission for the browser, and Screen Recording permission for the screenshot (used only when the configured provider supports vision).
+- Tested against `test-app/exam.html` (a Moodle-like fixture) and the user's local Moodle + SEB; not yet verified against every exam platform.
 
 ## Architecture
 
@@ -88,8 +89,12 @@ Sources/BlindSpot/
   Config.swift                   — Provider enum, static config reads
   PreferencesStore.swift         — @Observable prefs, Combine publishers
   AIService.swift                — streaming query, all provider adapters
-  AutoAnswerService.swift        — [BETA] AX-based exam auto-answer (⌘⌥A / ⌘⌥⇧A)
-  ConversationMessage.swift      — Role enum + message struct
+  AutoAnswerService.swift        — [BETA] browser-driven exam auto-answer (⌘⌥A / ⌘⌥⇧A)
+  AutoAnswerHistory.swift        — auto-answer conversation persistence
+  AutoAnswerProgress.swift       — floating "Answering…" indicator panel
+  ExamBridge.swift               — AppleScript bridge to SEB (WebKit) and Chromium
+  ScreenshotCapture.swift        — ScreenCaptureKit region/window screenshots
+  ConversationMessage.swift      — Role enum + message struct (with image attachment)
   ConversationStore.swift        — conversation persistence, CRUD
   AIProfile.swift                — profile model (provider, model, prompt, temp)
   CommandPanelController.swift   — floating command panel window

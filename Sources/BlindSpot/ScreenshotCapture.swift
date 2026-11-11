@@ -55,6 +55,39 @@ enum ScreenshotCapture {
         }
     }
 
+    // MARK: - Frontmost window capture
+
+    /// Captures the frontmost application's top window as PNG data.
+    /// Falls back to the region around the mouse if bounds can't be resolved.
+    static func captureFrontmostWindow() async -> Data? {
+        let bounds = frontmostWindowBounds() ?? mouseRect()
+        return await captureRegion(bounds)
+    }
+
+    private static func frontmostWindowBounds() -> CGRect? {
+        guard let frontApp = NSWorkspace.shared.frontmostApplication else { return nil }
+        let pid = frontApp.processIdentifier
+        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let list = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else { return nil }
+        let windows = list.filter {
+            ($0[kCGWindowOwnerPID as String] as? pid_t) == pid
+            && (($0[kCGWindowLayer as String] as? Int) ?? Int.max) == 0
+        }
+        guard let top = windows.max(by: { windowRect($0).map { $0.width * $0.height } ?? 0
+                                          < windowRect($1).map { $0.width * $0.height } ?? 0 }) else { return nil }
+        return windowRect(top)
+    }
+
+    /// kCGWindowBounds always bridges as an NSDictionary of NSNumbers.
+    private static func windowRect(_ window: [String: Any]) -> CGRect? {
+        guard let ns = window[kCGWindowBounds as String] as? NSDictionary else { return nil }
+        func num(_ key: String) -> CGFloat? { (ns[key] as? NSNumber).map { CGFloat($0.doubleValue) } }
+        if let x = num("X"), let y = num("Y"), let w = num("Width"), let h = num("Height") {
+            return CGRect(x: x, y: y, width: w, height: h)
+        }
+        return nil
+    }
+
     // MARK: - Private
 
     private static func mouseRect() -> CGRect {

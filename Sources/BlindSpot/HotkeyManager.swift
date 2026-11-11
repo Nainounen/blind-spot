@@ -4,6 +4,7 @@ import AppKit
 // Requires Accessibility permission (System Settings > Privacy & Security > Accessibility).
 class HotkeyManager {
     private var eventTap: CFMachPort?
+    private var runLoopSource: CFRunLoopSource?
     private let callback: () -> Void
 
     /// The currently-active hotkey. Mutable so SettingsView can change the
@@ -35,11 +36,14 @@ class HotkeyManager {
     }
 
     func start() {
+        guard eventTap == nil else { return } // avoid a second tap + source on double-start
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
         guard AXIsProcessTrustedWithOptions(options as CFDictionary) else {
+            AutoAnswerLog.log("Accessibility NOT granted — hotkey tap disabled")
             print("[BlindSpot] Accessibility permission required — grant it in System Settings, then relaunch.")
             return
         }
+        AutoAnswerLog.log("Accessibility granted — creating event tap")
 
         let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
@@ -58,9 +62,14 @@ class HotkeyManager {
 
                 let kc = UInt16(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeycode))
                 // 0xFFFF0000 == NSEvent.ModifierFlags.deviceIndependentFlagsMask.
-                let masked = UInt(event.flags.rawValue) & 0xFFFF_0000
+                // Caps Lock and the fn key sit inside that mask but toggle independently
+                // of the user's chosen modifiers, so exclude them from BOTH sides.
+                let transient = UInt(NSEvent.ModifierFlags.capsLock.rawValue)
+                              | UInt(NSEvent.ModifierFlags.function.rawValue)
+                let masked = (UInt(event.flags.rawValue) & 0xFFFF_0000) & ~transient
 
-                if kc == mgr.keyCode && masked == mgr.modifiers {
+                if kc == mgr.keyCode && masked == (mgr.modifiers & ~transient) {
+                    AutoAnswerLog.log("Hotkey fired: key=\(kc)")
                     DispatchQueue.main.async { mgr.callback() }
                     return nil // swallow
                 }
@@ -70,17 +79,26 @@ class HotkeyManager {
         )
 
         guard let tap = eventTap else {
+            AutoAnswerLog.log("Failed to create event tap")
             print("[BlindSpot] Failed to create event tap.")
             return
         }
 
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        runLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
+        AutoAnswerLog.log("Event tap active (key=\(keyCode) mods=\(modifiers))")
         print("[BlindSpot] Listening for hotkey.")
     }
 
     deinit {
-        if let tap = eventTap { CGEvent.tapEnable(tap: tap, enable: false) }
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            CFMachPortInvalidate(tap)
+        }
+        if let source = runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        }
     }
 }

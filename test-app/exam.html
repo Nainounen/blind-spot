@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BlindSpot Exam Fixture</title>
+<style>
+  body { font-family: -apple-system, sans-serif; max-width: 820px; margin: 2rem auto; padding: 0 1rem; }
+  .que { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin: 1rem 0; }
+  .qtext { font-size: 1.05rem; margin-bottom: .6rem; }
+  .r0, .r1 { margin: .2rem 0; }
+  label { cursor: pointer; }
+  select, input[type=text], textarea { padding: .25rem; }
+  .answer { margin-top: .5rem; }
+</style>
+</head>
+<body>
+<h1>Exam fixture</h1>
+
+<div class="que multichoice clearfix" id="q1">
+  <div class="info"><h3 class="no">Question 1</h3></div>
+  <div class="content"><div class="formulation clearfix">
+    <div class="qtext"><p>What is the capital of France?</p></div>
+    <div class="ablock"><div class="answer">
+      <div class="r0"><input type="radio" name="q1:1_answer" id="q1:1_answer0" value="0"><label for="q1:1_answer0"><span>Berlin</span></label></div>
+      <div class="r1"><input type="radio" name="q1:1_answer" id="q1:1_answer1" value="1"><label for="q1:1_answer1"><span>Paris</span></label></div>
+      <div class="r0"><input type="radio" name="q1:1_answer" id="q1:1_answer2" value="2"><label for="q1:1_answer2"><span>Rome</span></label></div>
+      <div class="r1"><input type="radio" name="q1:1_answer" id="q1:1_answer3" value="3"><label for="q1:1_answer3"><span>Madrid</span></label></div>
+    </div></div>
+  </div></div>
+</div>
+
+<div class="que multichoice clearfix" id="q2">
+  <div class="info"><h3 class="no">Question 2</h3></div>
+  <div class="content"><div class="formulation clearfix">
+    <div class="qtext"><p>Which of the following are prime numbers?</p></div>
+    <div class="ablock"><div class="answer">
+      <div class="r0"><input type="checkbox" name="q2:1_choice0" id="q2:1_choice0" value="0"><label for="q2:1_choice0"><span>2</span></label></div>
+      <div class="r1"><input type="checkbox" name="q2:1_choice1" id="q2:1_choice1" value="1"><label for="q2:1_choice1"><span>4</span></label></div>
+      <div class="r0"><input type="checkbox" name="q2:1_choice2" id="q2:1_choice2" value="2"><label for="q2:1_choice2"><span>7</span></label></div>
+      <div class="r1"><input type="checkbox" name="q2:1_choice3" id="q2:1_choice3" value="3"><label for="q2:1_choice3"><span>9</span></label></div>
+    </div></div>
+  </div></div>
+</div>
+
+<div class="que truefalse clearfix" id="q3">
+  <div class="info"><h3 class="no">Question 3</h3></div>
+  <div class="content"><div class="formulation clearfix">
+    <div class="qtext"><p>The chemical symbol for water is H2O.</p></div>
+    <div class="ablock"><div class="answer">
+      <div class="r0"><input type="radio" name="q3:1_answer" id="q3:1_answer0" value="1"><label for="q3:1_answer0"><span>True</span></label></div>
+      <div class="r1"><input type="radio" name="q3:1_answer" id="q3:1_answer1" value="0"><label for="q3:1_answer1"><span>False</span></label></div>
+    </div></div>
+  </div></div>
+</div>
+
+<div class="que shortanswer clearfix" id="q4">
+  <div class="info"><h3 class="no">Question 4</h3></div>
+  <div class="content"><div class="formulation clearfix">
+    <div class="qtext"><p>What is 2 + 2?</p></div>
+    <div class="ablock"><div class="answer">
+      <input type="text" name="q4:1_answer" size="20">
+    </div></div>
+  </div></div>
+</div>
+
+<div class="que numerical clearfix" id="q5">
+  <div class="info"><h3 class="no">Question 5</h3></div>
+  <div class="content"><div class="formulation clearfix">
+    <div class="qtext"><p>Write the value of pi rounded to two decimal places.</p></div>
+    <div class="ablock"><div class="answer">
+      <input type="text" name="q5:1_answer" size="20">
+    </div></div>
+  </div></div>
+</div>
+
+<div class="que essay clearfix" id="q6">
+  <div class="info"><h3 class="no">Question 6</h3></div>
+  <div class="content"><div class="formulation clearfix">
+    <div class="qtext"><p>Briefly explain what photosynthesis is.</p></div>
+    <div class="ablock"><div class="answer">
+      <textarea name="q6:1_answer" rows="4" cols="60"></textarea>
+    </div></div>
+  </div></div>
+</div>
+
+<div class="que match clearfix" id="q7">
+  <div class="info"><h3 class="no">Question 7</h3></div>
+  <div class="content"><div class="formulation clearfix">
+    <div class="qtext"><p>Match each country to its capital.</p></div>
+    <div class="ablock"><div class="answer">
+      <table>
+        <tr><td>France</td><td><select name="q7:1_sub0"><option>Choose...</option><option>Paris</option><option>Berlin</option><option>Tokyo</option></select></td></tr>
+        <tr><td>Germany</td><td><select name="q7:1_sub1"><option>Choose...</option><option>Paris</option><option>Berlin</option><option>Tokyo</option></select></td></tr>
+      </table>
+    </div></div>
+  </div></div>
+</div>
+
+<div class="que ordering clearfix" id="q8">
+  <div class="info"><h3 class="no">Question 8</h3></div>
+  <div class="content"><div class="formulation clearfix">
+    <div class="qtext"><p>Order these from smallest to largest.</p></div>
+    <div class="ablock"><div class="answer">
+      <ul class="sortablelist">
+        <li>city</li>
+        <li>planet</li>
+        <li>country</li>
+        <li>continent</li>
+      </ul>
+    </div></div>
+  </div></div>
+</div>
+
+<div class="que multianswer clearfix" id="q9">
+  <div class="info"><h3 class="no">Question 9</h3></div>
+  <div class="content"><div class="formulation clearfix">
+    <div class="qtext">
+      <p>During a TLS handshake the server proves its identity with a
+        <span class="subquestion"><label class="subq accesshide" for="q9:1_sub1_answer">Answer 1</label><select name="q9:1_sub1_answer" id="q9:1_sub1_answer" class="form-select d-inline-block mb-1"><option value="">&nbsp;</option><option value="1">certificate</option><option value="2">password</option><option value="3">cookie</option><option value="4">session ID</option></select></span>.
+      The client checks it against a trusted
+        <span class="subquestion"><label class="subq accesshide" for="q9:1_sub2_answer">Answer 2</label><input type="text" name="q9:1_sub2_answer" id="q9:1_sub2_answer" size="20" class="form-control d-inline mb-1"></span>.
+      Modern browsers require at least TLS version
+        <span class="subquestion"><label class="subq accesshide" for="q9:1_sub3_answer">Answer 3</label><input type="text" name="q9:1_sub3_answer" id="q9:1_sub3_answer" size="4" class="form-control d-inline mb-1"></span>.
+      Forward secrecy is provided by an ephemeral
+        <fieldset class="answer"><legend class="visually-hidden">Answer 4</legend>
+          <div class="form-check text-wrap text-break"><input type="radio" name="q9:1_sub4_answer" id="q9:1_sub4_answer0" value="0"><label for="q9:1_sub4_answer0" class="form-check-label text-body">Diffie-Hellman key exchange</label></div>
+          <div class="form-check text-wrap text-break"><input type="radio" name="q9:1_sub4_answer" id="q9:1_sub4_answer1" value="1"><label for="q9:1_sub4_answer1" class="form-check-label text-body">RSA key transport</label></div>
+          <div class="form-check text-wrap text-break"><input type="radio" name="q9:1_sub4_answer" id="q9:1_sub4_answer2" value="2"><label for="q9:1_sub4_answer2" class="form-check-label text-body">MD5 checksum</label></div>
+        </fieldset>.
+      </p>
+    </div>
+  </div></div>
+</div>
+
+<div class="que ddwtos clearfix" id="q10">
+  <div class="info"><h3 class="no">Question 10</h3></div>
+  <div class="content"><div class="formulation clearfix">
+    <div class="qtext">
+      <p>Drag the protocols onto the correct OSI layer:</p>
+      <p>Application layer: <span class="place1 drop active group1" tabindex="0">&nbsp;<span class="accesshide">blank 1</span></span><br>
+      Transport layer: <span class="place2 drop active group1" tabindex="0">&nbsp;<span class="accesshide">blank 2</span></span><br>
+      Network layer: <span class="place3 drop active group1" tabindex="0">&nbsp;<span class="accesshide">blank 3</span></span><br>
+      Data link layer: <span class="place4 drop active group1" tabindex="0">&nbsp;<span class="accesshide">blank 4</span></span></p>
+    </div>
+    <div class="ablock"><div class="answercontainer"><div class="user-select-none draggrouphomes1">
+      <span class="draghome user-select-none choice0 group1">HTTP</span>
+      <span class="draghome user-select-none choice1 group1">TCP</span>
+      <span class="draghome user-select-none choice2 group1">IP</span>
+      <span class="draghome user-select-none choice3 group1">Ethernet</span>
+      <span class="draghome user-select-none choice4 group1">JPEG</span>
+    </div></div></div>
+    <input type="hidden" class="placeinput place1 group1" name="q10:1_p1" value="0">
+    <input type="hidden" class="placeinput place2 group1" name="q10:1_p2" value="0">
+    <input type="hidden" class="placeinput place3 group1" name="q10:1_p3" value="0">
+    <input type="hidden" class="placeinput place4 group1" name="q10:1_p4" value="0">
+  </div></div>
+</div>
+
+<div class="que gapselect clearfix" id="q11">
+  <div class="info"><h3 class="no">Question 11</h3></div>
+  <div class="content"><div class="formulation clearfix">
+    <div class="qtext">
+      <p>In CSS, an ID is selected with
+        <span class="control group1"><label class="visually-hidden" for="q11:1_p1">Answer 1 Question 11</label><select name="q11:1_p1" id="q11:1_p1" class="form-select d-inline-block place1"><option value="">&nbsp;</option><option value="1">#</option><option value="2">.</option><option value="3">*</option><option value="4">&gt;</option><option value="5">~</option></select></span>,
+        a class with
+        <span class="control group1"><label class="visually-hidden" for="q11:1_p2">Answer 2 Question 11</label><select name="q11:1_p2" id="q11:1_p2" class="form-select d-inline-block place2"><option value="">&nbsp;</option><option value="1">#</option><option value="2">.</option><option value="3">*</option><option value="4">&gt;</option><option value="5">~</option></select></span>,
+        and every element with
+        <span class="control group1"><label class="visually-hidden" for="q11:1_p3">Answer 3 Question 11</label><select name="q11:1_p3" id="q11:1_p3" class="form-select d-inline-block place3"><option value="">&nbsp;</option><option value="1">#</option><option value="2">.</option><option value="3">*</option><option value="4">&gt;</option><option value="5">~</option></select></span>.
+      </p>
+    </div>
+  </div></div>
+</div>
+
+<div class="que numerical clearfix" id="q12">
+  <div class="info"><h3 class="no">Question 12</h3></div>
+  <div class="content"><div class="formulation clearfix">
+    <div class="qtext"><p>How many bytes are in one kibibyte (KiB)? (enter the number and choose the unit)</p></div>
+    <div class="ablock"><div class="answer">
+      <input type="text" name="q12:1_answer" size="20">
+      <select name="q12:1_unit">
+        <option value="1">B</option>
+        <option value="2">bit</option>
+      </select>
+    </div></div>
+  </div></div>
+</div>
+
+<div class="que ddimageortext clearfix" id="q13">
+  <div class="info"><h3 class="no">Question 13</h3></div>
+  <div class="content"><div class="formulation clearfix">
+    <div class="qtext"><p>Drag the components into the numbered boxes to complete the request path.</p></div>
+    <div class="ablock"><div class="answer">
+      <div class="ddarea"><div class="droparea">
+        <img class="img-responsive" alt="request path diagram" style="width:400px;height:200px" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='400'%20height='200'%3E%3Crect%20width='400'%20height='200'%20fill='%23eeeeee'/%3E%3Ctext%20x='10'%20y='100'%3Erequest%20path%3C/text%3E%3C/svg%3E">
+        <div class="dropzone drop active"><span class="dzlabel">Box 1</span></div>
+        <div class="dropzone drop active"><span class="dzlabel">Box 2</span></div>
+        <div class="dropzone drop active"><span class="dzlabel">Box 3</span></div>
+      </div></div>
+      <div class="dragitems"><div class="draggroup">
+        <span class="draghome choice1 user-select-none">Load balancer</span>
+        <span class="draghome choice2 user-select-none">App server</span>
+        <span class="draghome choice3 user-select-none">Database</span>
+        <span class="draghome choice4 user-select-none">Printer</span>
+      </div></div>
+    </div></div>
+  </div></div>
+</div>
+
+<div class="que ddmarker clearfix" id="q14">
+  <div class="info"><h3 class="no">Question 14</h3></div>
+  <div class="content"><div class="formulation clearfix">
+    <div class="qtext"><p>Place the markers on the floor plan: the server rack, the projector and the visitor badge printer.</p></div>
+    <div class="ablock"><div class="answer">
+      <div class="ddarea"><div class="droparea">
+        <img class="img-responsive" alt="floor plan" style="width:400px;height:200px" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='400'%20height='200'%3E%3Crect%20width='400'%20height='200'%20fill='%23eeeeee'/%3E%3Ctext%20x='10'%20y='100'%3Efloor%20plan%3C/text%3E%3C/svg%3E">
+        <div class="dropzone drop active"><span class="dzlabel">1</span></div>
+        <div class="dropzone drop active"><span class="dzlabel">2</span></div>
+        <div class="dropzone drop active"><span class="dzlabel">3</span></div>
+      </div></div>
+      <div class="dragitems"><div class="markeritems">
+        <span class="dragitem marker1 user-select-none">Server rack</span>
+        <span class="dragitem marker2 user-select-none">Projector</span>
+        <span class="dragitem marker3 user-select-none">Badge printer</span>
+      </div></div>
+    </div></div>
+  </div></div>
+</div>
+
+</body>
+</html>
